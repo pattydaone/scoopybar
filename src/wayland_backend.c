@@ -2,15 +2,11 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <sys/types.h>
 #include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
 #include <stdlib.h>
-
-#include "../include/xdg-shell-client-protocol.h"
-
-#define WLR_USE_UNSTABLE
-#include <wlroots-0.20/wlr/types/wlr_layer_shell_v1.h>
 
 /* Temp */ 
 
@@ -81,7 +77,7 @@ static const struct wl_buffer_listener wl_buffer_listener = {
 };
 
 static struct wl_buffer *
-draw_frame(struct bar_backend *state)
+draw_frame(struct bar_backend *state, uint32_t x, uint32_t y)
 {
     const int width = 1920, height = 40;
     int stride = width * 4;
@@ -122,25 +118,22 @@ draw_frame(struct bar_backend *state)
 
 /* End Temp */
 
-static void xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial) {
-    xdg_wm_base_pong(xdg_wm_base, serial);
-}
-
-static const struct xdg_wm_base_listener xdg_wm_base_listener = {
-	.ping = &xdg_wm_base_ping
-};
-
-static void xdg_surface_configure(void *data, struct xdg_surface *surface, uint32_t serial) {
+static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t x, uint32_t y, uint32_t serial) {
 	struct bar_backend *state = data;
-	xdg_surface_ack_configure(surface, serial);
+	zwlr_layer_surface_v1_ack_configure(surface, serial);
 
-	struct wl_buffer *buffer = draw_frame(state);
+	struct wl_buffer *buffer = draw_frame(state, x, y);
     wl_surface_attach(state->wl_surface, buffer, 0, 0);
     wl_surface_commit(state->wl_surface);
 }
 
-static const struct xdg_surface_listener xdg_surface_listener = {
-	.configure = &xdg_surface_configure,
+static void zwlr_surface_closed(void *data, struct zwlr_layer_surface_v1 *surface) {
+	// todo
+}
+
+static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener = {
+	.configure = &zwlr_surface_configure,
+	.closed    = &zwlr_surface_closed
 };
 
 static void registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version) {
@@ -151,13 +144,12 @@ static void registry_global(void *data, struct wl_registry *wl_registry, uint32_
 	else if (strcmp(interface, wl_compositor_interface.name) == 0) {
 		state->wl_compositor = wl_registry_bind(wl_registry, name, &wl_compositor_interface, 4);
 	}
-	else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
-		state->xdg_wm_base = wl_registry_bind(wl_registry, name, &xdg_wm_base_interface, 4);
-		xdg_wm_base_add_listener(state->xdg_wm_base, &xdg_wm_base_listener, state);
+	else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
+		state->zwlr_layer_shell = wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, 1);
 	}
-	else if (strcmp(interface, xdg_surface_interface.name) == 0) {
-		state->xdg_surface = wl_registry_bind(wl_registry, name, &xdg_surface_interface, 4);
-		xdg_surface_add_listener(state->xdg_surface, &xdg_surface_listener, state);
+	else if (strcmp(interface, zwlr_layer_surface_v1_interface.name) == 0) {
+		state->layer_surface = wl_registry_bind(wl_registry, name, &zwlr_layer_surface_v1_interface, 1);
+		zwlr_layer_surface_v1_add_listener(state->layer_surface, &zwlr_surface_listener, state);
 	}
 }
 
@@ -178,10 +170,16 @@ struct bar_backend *init_bar_backend() {
 	wl_display_roundtrip(ret->wl_display);
 
     ret->wl_surface = wl_compositor_create_surface(ret->wl_compositor);
-    ret->xdg_surface = xdg_wm_base_get_xdg_surface(
-            ret->xdg_wm_base, ret->wl_surface);
-    xdg_surface_add_listener(ret->xdg_surface, &xdg_surface_listener, ret);
-    ret->xdg_toplevel = xdg_surface_get_toplevel(ret->xdg_surface);
+	ret->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
+			ret->zwlr_layer_shell, ret->wl_surface, NULL, 
+			ZWLR_LAYER_SHELL_V1_LAYER_TOP, "panel");
+
+	zwlr_layer_surface_v1_set_size(ret->layer_surface, 1920, 40);
+	
+	zwlr_layer_surface_v1_set_anchor(ret->layer_surface, 
+			ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP);
+
+	zwlr_layer_surface_v1_set_exclusive_zone(ret->layer_surface, 40);
 
     wl_surface_commit(ret->wl_surface);
 
