@@ -1,4 +1,4 @@
-### Scoopybar 
+# Scoopybar 
 
 This project is currently under development, and knowing me, may never get finished. It is, at the moment, so early as to be entirely 
 unusable.
@@ -21,19 +21,22 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 (such as gtk). **Thus far** I have not taken any code from there.
 
 
-### The design
+# The design
 
 ## Configuration 
 
 Typical unix-like configuration:
 
 [bar]
+
 // global configuration options
 
 [item]
+
 // type, location, script, aesthetics...
 
 [item]
+
 // next item... 
 
 ...
@@ -51,7 +54,7 @@ Typical unix-like configuration:
 - pop-up menu
 
 ## Bar Hierarchy
-
+```
 Bar
 ├── Item1
 │   └── Script to call
@@ -63,14 +66,14 @@ Bar
 │       └── Sub-Item2
 │
 └── Item3
-
+```
 ## IPC model
 
-# Shell scripts
+### Shell scripts
 
 The binary, scoopybar, will have the capability to send messages to the main bar. Thus, a shell script for an item will do its logic, then invoke scoopybar and send the message.
 
-# c/c++ binaries
+### c/c++ binaries
 
 While one of these binaries could employ the above tactic, there's probably a better way. Here are my two rough ideas:
 
