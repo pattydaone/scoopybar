@@ -8,6 +8,8 @@
 #include <wayland-client.h>
 #include <stdlib.h>
 
+#include <pixman.h>
+
 /* Temp */ 
 
 #include <errno.h>
@@ -73,7 +75,7 @@ wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
 }
 
 static const struct wl_buffer_listener wl_buffer_listener = {
-    .release = wl_buffer_release,
+    .release = &wl_buffer_release,
 };
 
 static struct wl_buffer *
@@ -118,11 +120,11 @@ draw_frame(struct bar_backend *state, uint32_t x, uint32_t y)
 
 /* End Temp */
 
-static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t x, uint32_t y, uint32_t serial) {
+static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t serial, uint32_t width, uint32_t height) {
 	struct bar_backend *state = data;
 	zwlr_layer_surface_v1_ack_configure(surface, serial);
 
-	struct wl_buffer *buffer = draw_frame(state, x, y);
+	struct wl_buffer *buffer = draw_frame(state, width, height);
     wl_surface_attach(state->wl_surface, buffer, 0, 0);
     wl_surface_commit(state->wl_surface);
 }
@@ -147,10 +149,6 @@ static void registry_global(void *data, struct wl_registry *wl_registry, uint32_
 	else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
 		state->zwlr_layer_shell = wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, 1);
 	}
-	else if (strcmp(interface, zwlr_layer_surface_v1_interface.name) == 0) {
-		state->layer_surface = wl_registry_bind(wl_registry, name, &zwlr_layer_surface_v1_interface, 1);
-		zwlr_layer_surface_v1_add_listener(state->layer_surface, &zwlr_surface_listener, state);
-	}
 }
 
 static void registry_global_remove(void *data, struct wl_registry *wl_registry, uint32_t name) {
@@ -173,6 +171,7 @@ struct bar_backend *init_bar_backend() {
 	ret->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
 			ret->zwlr_layer_shell, ret->wl_surface, NULL, 
 			ZWLR_LAYER_SHELL_V1_LAYER_TOP, "panel");
+	zwlr_layer_surface_v1_add_listener(ret->layer_surface, &zwlr_surface_listener, ret);
 
 	zwlr_layer_surface_v1_set_size(ret->layer_surface, 1920, 40);
 	
