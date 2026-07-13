@@ -1,5 +1,8 @@
 #include "wayland_backend.h"
+#include "ll.h"
 
+#include <stdio.h>
+#include <assert.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/types.h>
@@ -120,6 +123,8 @@ draw_frame(struct bar_backend *state, uint32_t x, uint32_t y)
 
 /* End Temp */
 
+
+
 static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t serial, uint32_t width, uint32_t height) {
 	struct bar_backend *state = data;
 	zwlr_layer_surface_v1_ack_configure(surface, serial);
@@ -138,6 +143,48 @@ static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener = {
 	.closed    = &zwlr_surface_closed
 };
 
+
+
+static void wl_output_geometry(void *data, struct wl_output *output, int x, int y, int physical_width,
+							   int physical_height, int subpixel, const char* make, const char* model, int transform) {
+	struct output *state = data;
+	state->transform = transform;
+}
+
+static void wl_output_mode(void *data, struct wl_output *output, uint flags, int width, int height, int refresh) {
+	struct output *state = data;
+	state->width = width;
+	state->height = height;
+}
+
+static void wl_output_scale(void *data, struct wl_output *output, int scale) {
+	struct output *state = data;
+	state->scale = scale;
+}
+
+static void wl_output_name(void *data, struct wl_output *output, const char *name) {
+	struct output *state = data;
+	state->name = (name != NULL ? strdup(name) : NULL);
+}
+
+static void wl_output_done(void *data, struct wl_output *output) {
+	struct output *state = data;
+	if (!state->scale) state->scale = 1;
+}
+
+static void wl_output_description(void *data, struct wl_output *output, const char* description) {
+	// No neeed
+}
+
+static const struct wl_output_listener wl_output_listener = {
+	.geometry    = &wl_output_geometry,
+	.mode        = &wl_output_mode,
+	.done        = &wl_output_done,
+	.scale       = &wl_output_scale,
+	.name        = &wl_output_name,
+	.description = &wl_output_description
+};
+
 static void registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version) {
 	struct bar_backend *state = data;
 	if (strcmp(interface, wl_shm_interface.name) == 0) {
@@ -148,6 +195,13 @@ static void registry_global(void *data, struct wl_registry *wl_registry, uint32_
 	}
 	else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
 		state->zwlr_layer_shell = wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, 1);
+	}
+	else if (strcmp(interface, wl_output_interface.name) == 0) {
+		struct output *out = malloc(sizeof(struct output));
+		out->output = wl_registry_bind(wl_registry, name, &wl_output_interface, 4);
+		wl_output_add_listener(out->output, &wl_output_listener, out);
+
+		LL_push_back(state->outputs, out);
 	}
 }
 
