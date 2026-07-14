@@ -6,15 +6,9 @@
 #include <stdlib.h>
 #include "wayland_backend.h"
 
-struct output {
-	struct wl_output *output;
-	uint32_t width;
-	uint32_t height;
-	uint32_t scale;
-	uint32_t transform;
-	char *name;
-
-	struct bar_backend *backend;
+enum type {
+	OUTPUT,
+	SURFACE
 };
 
 struct output_node {
@@ -22,9 +16,12 @@ struct output_node {
 	struct output_node *next;
 };
 
-struct output_node *LL_construct(struct output *output);
+struct surface_node {
+	struct surface *data;
+	struct surface_node *next;
+};
 
-void LL_push_back(struct output_node *prev, struct output *output);
+void LL_push_back(void *prev, void *data, enum type type);
 
 // for each ?
 

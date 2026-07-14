@@ -6,6 +6,27 @@
 
 #include <sys/types.h>
 
+struct output {
+	struct wl_output *output;
+	uint32_t width;
+	uint32_t height;
+	uint32_t scale;
+	uint32_t transform;
+	char *name;
+
+	struct bar_backend *backend;
+};
+
+struct surface {
+	struct wl_surface *wl_surface;
+	struct zwlr_layer_surface_v1 *layer_surface;
+
+	uint32_t height;
+	uint32_t width;
+	
+	struct bar_backend *backend;
+};
+
 struct bar_backend {
 	struct wl_display *wl_display;
 	struct wl_compositor *wl_compositor;
@@ -13,8 +34,7 @@ struct bar_backend {
 	struct wl_shm *wl_shm;
 	struct zwlr_layer_shell_v1 *zwlr_layer_shell;
 
-	struct wl_surface *wl_surface;
-	struct zwlr_layer_surface_v1 *layer_surface;
+	struct surface *surfaces;
 
 	struct output_node *outputs;
 

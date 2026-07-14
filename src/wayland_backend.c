@@ -82,7 +82,7 @@ static const struct wl_buffer_listener wl_buffer_listener = {
 };
 
 static struct wl_buffer *
-draw_frame(struct bar_backend *state, uint32_t x, uint32_t y)
+draw_frame(struct surface *state, uint32_t x, uint32_t y)
 {
     const int width = 1920, height = 40;
     int stride = width * 4;
@@ -100,7 +100,7 @@ draw_frame(struct bar_backend *state, uint32_t x, uint32_t y)
         return NULL;
     }
 
-    struct wl_shm_pool *pool = wl_shm_create_pool(state->wl_shm, fd, size);
+    struct wl_shm_pool *pool = wl_shm_create_pool(state->backend->wl_shm, fd, size);
     struct wl_buffer *buffer = wl_shm_pool_create_buffer(pool, 0,
             width, height, stride, WL_SHM_FORMAT_XRGB8888);
     wl_shm_pool_destroy(pool);
@@ -127,7 +127,7 @@ draw_frame(struct bar_backend *state, uint32_t x, uint32_t y)
 // START: wlr_surface_listener code
 
 static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t serial, uint32_t width, uint32_t height) {
-	struct bar_backend *state = data;
+	struct surface *state = data;
 	zwlr_layer_surface_v1_ack_configure(surface, serial);
 
 	struct wl_buffer *buffer = draw_frame(state, width, height);
@@ -149,21 +149,27 @@ static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener = {
 
 static void create_surface(struct output *output) {
 	struct bar_backend *data = output->backend;
-    data->wl_surface = wl_compositor_create_surface(data->wl_compositor);
-	data->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
-			data->zwlr_layer_shell, data->wl_surface, output->output, 
-			ZWLR_LAYER_SHELL_V1_LAYER_TOP, "panel");
-	zwlr_layer_surface_v1_add_listener(data->layer_surface, &zwlr_surface_listener, data);
+	struct surface *surface = malloc(sizeof(struct surface));
+	surface->backend =  data;
 
-	zwlr_layer_surface_v1_set_size(data->layer_surface, 
+    surface->wl_surface = wl_compositor_create_surface(data->wl_compositor);
+	surface->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
+			data->zwlr_layer_shell, surface->wl_surface, output->output, 
+			ZWLR_LAYER_SHELL_V1_LAYER_TOP, "panel");
+
+	zwlr_layer_surface_v1_add_listener(surface->layer_surface, &zwlr_surface_listener, surface);
+
+	zwlr_layer_surface_v1_set_size(surface->layer_surface, 
 								   data->width, data->height);
 	
-	zwlr_layer_surface_v1_set_anchor(data->layer_surface, 
+	zwlr_layer_surface_v1_set_anchor(surface->layer_surface, 
 			ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP);
 
-	zwlr_layer_surface_v1_set_exclusive_zone(data->layer_surface, 40);
+	zwlr_layer_surface_v1_set_exclusive_zone(surface->layer_surface, 40);
 
-    wl_surface_commit(data->wl_surface);
+    wl_surface_commit(surface->wl_surface);
+
+	LL_push_back(data->surfaces, surface, SURFACE);
 }
 
 // START: wl_output_listener code
@@ -230,7 +236,7 @@ static void registry_global(void *data, struct wl_registry *wl_registry, uint32_
 
 		wl_output_add_listener(out->output, &wl_output_listener, out);
 
-		LL_push_back(state->outputs, out);
+		LL_push_back(state->outputs, out, OUTPUT);
 	}
 }
 
