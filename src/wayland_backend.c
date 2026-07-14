@@ -124,6 +124,7 @@ draw_frame(struct bar_backend *state, uint32_t x, uint32_t y)
 /* End Temp */
 
 
+// START: wlr_surface_listener code
 
 static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t serial, uint32_t width, uint32_t height) {
 	struct bar_backend *state = data;
@@ -143,7 +144,29 @@ static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener = {
 	.closed    = &zwlr_surface_closed
 };
 
+// END: wlr_surface_listener code
 
+
+static void create_surface(struct output *output) {
+	struct bar_backend *data = output->backend;
+    data->wl_surface = wl_compositor_create_surface(data->wl_compositor);
+	data->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
+			data->zwlr_layer_shell, data->wl_surface, output->output, 
+			ZWLR_LAYER_SHELL_V1_LAYER_TOP, "panel");
+	zwlr_layer_surface_v1_add_listener(data->layer_surface, &zwlr_surface_listener, data);
+
+	zwlr_layer_surface_v1_set_size(data->layer_surface, 
+								   data->width, data->height);
+	
+	zwlr_layer_surface_v1_set_anchor(data->layer_surface, 
+			ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP);
+
+	zwlr_layer_surface_v1_set_exclusive_zone(data->layer_surface, 40);
+
+    wl_surface_commit(data->wl_surface);
+}
+
+// START: wl_output_listener code
 
 static void wl_output_geometry(void *data, struct wl_output *output, int x, int y, int physical_width,
 							   int physical_height, int subpixel, const char* make, const char* model, int transform) {
@@ -170,6 +193,8 @@ static void wl_output_name(void *data, struct wl_output *output, const char *nam
 static void wl_output_done(void *data, struct wl_output *output) {
 	struct output *state = data;
 	if (!state->scale) state->scale = 1;
+
+	create_surface(state);
 }
 
 static void wl_output_description(void *data, struct wl_output *output, const char* description) {
@@ -185,6 +210,8 @@ static const struct wl_output_listener wl_output_listener = {
 	.description = &wl_output_description
 };
 
+// END: wl_output_listener code
+
 static void registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version) {
 	struct bar_backend *state = data;
 	if (strcmp(interface, wl_shm_interface.name) == 0) {
@@ -199,6 +226,8 @@ static void registry_global(void *data, struct wl_registry *wl_registry, uint32_
 	else if (strcmp(interface, wl_output_interface.name) == 0) {
 		struct output *out = malloc(sizeof(struct output));
 		out->output = wl_registry_bind(wl_registry, name, &wl_output_interface, 4);
+		out->backend = state;
+
 		wl_output_add_listener(out->output, &wl_output_listener, out);
 
 		LL_push_back(state->outputs, out);
@@ -216,25 +245,12 @@ static const struct wl_registry_listener registry_listener = {
 
 struct bar_backend *init_bar_backend() {
 	struct bar_backend *ret = malloc(sizeof(struct bar_backend));
+	ret->width = 1920;
+	ret->height = 40;
 	ret->wl_display = wl_display_connect(NULL);
 	ret->wl_registry = wl_display_get_registry(ret->wl_display);
 	wl_registry_add_listener(ret->wl_registry, &registry_listener, ret);
 	wl_display_roundtrip(ret->wl_display);
-
-    ret->wl_surface = wl_compositor_create_surface(ret->wl_compositor);
-	ret->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
-			ret->zwlr_layer_shell, ret->wl_surface, NULL, 
-			ZWLR_LAYER_SHELL_V1_LAYER_TOP, "panel");
-	zwlr_layer_surface_v1_add_listener(ret->layer_surface, &zwlr_surface_listener, ret);
-
-	zwlr_layer_surface_v1_set_size(ret->layer_surface, 1920, 40);
-	
-	zwlr_layer_surface_v1_set_anchor(ret->layer_surface, 
-			ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP);
-
-	zwlr_layer_surface_v1_set_exclusive_zone(ret->layer_surface, 40);
-
-    wl_surface_commit(ret->wl_surface);
 
     while (wl_display_dispatch(ret->wl_display)) {
         /* This space deliberately left blank */

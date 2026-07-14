@@ -17,6 +17,9 @@ struct bar_backend {
 	struct zwlr_layer_surface_v1 *layer_surface;
 
 	struct output_node *outputs;
+
+	uint32_t width;
+	uint32_t height;
 };
 
 struct bar_backend *init_bar_backend();

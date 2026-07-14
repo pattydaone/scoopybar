@@ -4,7 +4,7 @@
 #include "../include/xdg-output-unstable-v1.h"
 
 #include <stdlib.h>
-
+#include "wayland_backend.h"
 
 struct output {
 	struct wl_output *output;
@@ -13,6 +13,8 @@ struct output {
 	uint32_t scale;
 	uint32_t transform;
 	char *name;
+
+	struct bar_backend *backend;
 };
 
 struct output_node {
