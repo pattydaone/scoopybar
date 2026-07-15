@@ -15,16 +15,14 @@ struct output {
 	char *name;
 
 	struct bar_backend *backend;
-};
 
-struct surface {
-	struct wl_surface *wl_surface;
-	struct zwlr_layer_surface_v1 *layer_surface;
+	struct {
+		struct wl_surface *wl_surface;
+		struct zwlr_layer_surface_v1 *layer_surface;
 
-	uint32_t height;
-	uint32_t width;
-	
-	struct bar_backend *backend;
+		uint32_t height;
+		uint32_t width;
+	} surface;
 };
 
 struct bar_backend {
@@ -33,8 +31,6 @@ struct bar_backend {
 	struct wl_registry *wl_registry;
 	struct wl_shm *wl_shm;
 	struct zwlr_layer_shell_v1 *zwlr_layer_shell;
-
-	struct surface *surfaces;
 
 	struct output_node *outputs;
 

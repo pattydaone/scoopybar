@@ -82,9 +82,10 @@ static const struct wl_buffer_listener wl_buffer_listener = {
 };
 
 static struct wl_buffer *
-draw_frame(struct surface *state, uint32_t x, uint32_t y)
+draw_frame(struct output *state, uint32_t x, uint32_t y)
 {
-    const int width = 1920, height = 40;
+    const int width = state->surface.width;
+	const int height = state->surface.height;
     int stride = width * 4;
     int size = stride * height;
 
@@ -127,12 +128,12 @@ draw_frame(struct surface *state, uint32_t x, uint32_t y)
 // START: wlr_surface_listener code
 
 static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t serial, uint32_t width, uint32_t height) {
-	struct surface *state = data;
+	struct output *state = data;
 	zwlr_layer_surface_v1_ack_configure(surface, serial);
 
 	struct wl_buffer *buffer = draw_frame(state, width, height);
-    wl_surface_attach(state->wl_surface, buffer, 0, 0);
-    wl_surface_commit(state->wl_surface);
+    wl_surface_attach(state->surface.wl_surface, buffer, 0, 0);
+    wl_surface_commit(state->surface.wl_surface);
 }
 
 static void zwlr_surface_closed(void *data, struct zwlr_layer_surface_v1 *surface) {
@@ -149,27 +150,38 @@ static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener = {
 
 static void create_surface(struct output *output) {
 	struct bar_backend *data = output->backend;
-	struct surface *surface = malloc(sizeof(struct surface));
-	surface->backend =  data;
 
-    surface->wl_surface = wl_compositor_create_surface(data->wl_compositor);
-	surface->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
-			data->zwlr_layer_shell, surface->wl_surface, output->output, 
+	output->surface.height = data->height;
+	output->surface.width = data->width;
+
+    output->surface.wl_surface = wl_compositor_create_surface(data->wl_compositor);
+
+	if (output->surface.wl_surface == NULL) {
+		fprintf(stderr, "%s:%d \t Failed to create wl_surface for output:  %s\n", __FILE__, __LINE__, output->name);
+		exit(1);
+	}
+	
+	output->surface.layer_surface = zwlr_layer_shell_v1_get_layer_surface(
+			data->zwlr_layer_shell, output->surface.wl_surface, output->output, 
 			ZWLR_LAYER_SHELL_V1_LAYER_TOP, "panel");
 
-	zwlr_layer_surface_v1_add_listener(surface->layer_surface, &zwlr_surface_listener, surface);
+	if (output->surface.layer_surface == NULL) {
+		fprintf(stderr, "%s:%d \t failed to create layer_surface for output:  %s\n", __FILE__, __LINE__, output->name);
+		exit(1);
+	}
 
-	zwlr_layer_surface_v1_set_size(surface->layer_surface, 
+	zwlr_layer_surface_v1_add_listener(output->surface.layer_surface, &zwlr_surface_listener, output);
+
+	zwlr_layer_surface_v1_set_size(output->surface.layer_surface, 
 								   data->width, data->height);
 	
-	zwlr_layer_surface_v1_set_anchor(surface->layer_surface, 
+	zwlr_layer_surface_v1_set_anchor(output->surface.layer_surface, 
 			ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP);
 
-	zwlr_layer_surface_v1_set_exclusive_zone(surface->layer_surface, 40);
+	zwlr_layer_surface_v1_set_exclusive_zone(output->surface.layer_surface,	
+											 output->surface.height);
 
-    wl_surface_commit(surface->wl_surface);
-
-	LL_push_back(data->surfaces, surface, SURFACE);
+    wl_surface_commit(output->surface.wl_surface);
 }
 
 // START: wl_output_listener code
@@ -218,6 +230,14 @@ static const struct wl_output_listener wl_output_listener = {
 
 // END: wl_output_listener code
 
+void check_version(const char *interface, uint32_t required, uint32_t actual) {
+	if (actual >= required) return;
+	
+	fprintf(stderr, "%s:%d\t%s interface is version %d, version %d needed", 
+			__FILE__, __LINE__, interface, actual, required);
+	exit(1);
+}
+
 static void registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version) {
 	struct bar_backend *state = data;
 	if (strcmp(interface, wl_shm_interface.name) == 0) {
@@ -230,6 +250,8 @@ static void registry_global(void *data, struct wl_registry *wl_registry, uint32_
 		state->zwlr_layer_shell = wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, 1);
 	}
 	else if (strcmp(interface, wl_output_interface.name) == 0) {
+		check_version(interface, 4, version);
+
 		struct output *out = malloc(sizeof(struct output));
 		out->output = wl_registry_bind(wl_registry, name, &wl_output_interface, 4);
 		out->backend = state;

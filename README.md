@@ -20,6 +20,17 @@ easily and without having to recompile the entire bar.
 I am taking great reference from "yambar" for the wayland backend, as this bar is implemented using wayland/wlr protocol as opposed to using an abstraction 
 (such as gtk). **Thus far** I have not taken any code from there.
 
+# Roadmap
+
+- [X] Add multi-monitor support
+- [ ] Scale stuff properly
+- [ ] Add some error checking
+- [ ] Logging
+- [ ] Configuration for bar
+- [ ] Figure out how I intend to attach buffers (using pixman)
+- [ ] Add basic items
+- [ ] Figure out text rendering
+- [ ] Configuration for text items
 
 # The design
 
@@ -27,6 +38,7 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 
 Typical unix-like configuration:
 
+```
 [bar]
 
 // global configuration options
@@ -40,6 +52,7 @@ Typical unix-like configuration:
 // next item... 
 
 ...
+```
 
 ## Item types
 
@@ -80,3 +93,4 @@ While one of these binaries could employ the above tactic, there's probably a be
 - When the bar runs the binary, it opens a pipe between the sub-process and itself, thus allowing the forked process to send messages through this pipe.
 
 - The bar has a persistent socket/linux message queue open which any binary can send messages to. This is the more likely option, as the binary also needs to be able to send messages to the bar. What if there are multiple bars? A bar, or multiple, having its own socket with which anyone can interface makes the most sense, I think.
+
