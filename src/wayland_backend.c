@@ -1,5 +1,6 @@
 #include "wayland_backend.h"
 #include "ll.h"
+#include "../utils/log.h"
 
 #include <stdio.h>
 #include <assert.h>
@@ -73,7 +74,6 @@ allocate_shm_file(size_t size)
 static void
 wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
-    /* Sent by the compositor when it's no longer using this buffer */
     wl_buffer_destroy(wl_buffer);
 }
 
@@ -157,8 +157,9 @@ static void create_surface(struct output *output) {
     output->surface.wl_surface = wl_compositor_create_surface(data->wl_compositor);
 
 	if (output->surface.wl_surface == NULL) {
-		fprintf(stderr, "%s:%d \t Failed to create wl_surface for output:  %s\n", __FILE__, __LINE__, output->name);
-		exit(1);
+		char msg[512];
+		sprintf(msg, "Failed to create wl_surface for output %s", output->name);
+		log_err(__FILE__, __LINE__, msg);
 	}
 	
 	output->surface.layer_surface = zwlr_layer_shell_v1_get_layer_surface(
@@ -166,8 +167,9 @@ static void create_surface(struct output *output) {
 			ZWLR_LAYER_SHELL_V1_LAYER_TOP, "panel");
 
 	if (output->surface.layer_surface == NULL) {
-		fprintf(stderr, "%s:%d \t failed to create layer_surface for output:  %s\n", __FILE__, __LINE__, output->name);
-		exit(1);
+		char msg[512];
+		sprintf(msg, "Failed to create layer_surface for output %s", output->name);
+		log_err(__FILE__, __LINE__, msg);
 	}
 
 	zwlr_layer_surface_v1_add_listener(output->surface.layer_surface, &zwlr_surface_listener, output);
@@ -233,30 +235,42 @@ static const struct wl_output_listener wl_output_listener = {
 void check_version(const char *interface, uint32_t required, uint32_t actual) {
 	if (actual >= required) return;
 	
-	fprintf(stderr, "%s:%d\t%s interface is version %d, version %d needed", 
-			__FILE__, __LINE__, interface, actual, required);
-	exit(1);
+	char msg[512];
+	sprintf(msg, "Version for interface %s is %d, where %d is required", interface, actual, required);
+	log_err(__FILE__, __LINE__, msg);
 }
 
 static void registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version) {
 	struct bar_backend *state = data;
 	if (strcmp(interface, wl_shm_interface.name) == 0) {
+		check_version(interface, 1, version);
+
 		state->wl_shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, 1);
+		log_dbg(__FILE__, __LINE__, "Binded to wl_shm.", 3);
 	}
 	else if (strcmp(interface, wl_compositor_interface.name) == 0) {
+		check_version(interface, 4, version);
+
 		state->wl_compositor = wl_registry_bind(wl_registry, name, &wl_compositor_interface, 4);
+		log_dbg(__FILE__, __LINE__, "Binded to wl_compositor.", 3);
 	}
 	else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
-		state->zwlr_layer_shell = wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, 1);
+		check_version(interface, 3, version);
+
+		state->zwlr_layer_shell = wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, 3);
+		log_dbg(__FILE__, __LINE__, "Binded to zwlr_layer_shell.", 3);
 	}
 	else if (strcmp(interface, wl_output_interface.name) == 0) {
 		check_version(interface, 4, version);
 
 		struct output *out = malloc(sizeof(struct output));
 		out->output = wl_registry_bind(wl_registry, name, &wl_output_interface, 4);
+		log_dbg(__FILE__, __LINE__, "Binded to wl_output.", 3);
+
 		out->backend = state;
 
 		wl_output_add_listener(out->output, &wl_output_listener, out);
+		log_dbg(__FILE__, __LINE__, "Added wl_output listener.", 3);
 
 		LL_push_back(state->outputs, out, OUTPUT);
 	}

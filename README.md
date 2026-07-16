@@ -20,14 +20,20 @@ easily and without having to recompile the entire bar.
 I am taking great reference from "yambar" for the wayland backend, as this bar is implemented using wayland/wlr protocol as opposed to using an abstraction 
 (such as gtk). **Thus far** I have not taken any code from there.
 
+# To work on continuously
+
+- Error checking
+- Logging
+
 # Roadmap
 
 - [X] Add multi-monitor support
 - [ ] Scale stuff properly
-- [ ] Add some error checking
-- [ ] Logging
-- [ ] Configuration for bar
+- [X] Add some error checking
+- [X] Logging
+- [ ] "Improve" logging API with printf-like formatting
 - [ ] Figure out how I intend to attach buffers (using pixman)
+- [ ] Configuration for bar
 - [ ] Add basic items
 - [ ] Figure out text rendering
 - [ ] Configuration for text items
