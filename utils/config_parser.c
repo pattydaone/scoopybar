@@ -1,20 +1,21 @@
 #include "config_parser.h"
+
+#include "log.h"
+
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-struct ConfParser *PARSER_create(const char *file_path) {
+
+struct ConfParser *PARSER_create(const char *file_path, int buf_sz) {
 	struct ConfParser *ret = malloc(sizeof(struct ConfParser));
-	ret->section = malloc(1);
-	ret->key = malloc(1);
-	ret->value = malloc(1);
+	ret->section = malloc(buf_sz);
+	ret->key = malloc(buf_sz);
+	ret->value = malloc(buf_sz);
+	ret->buf_sz = buf_sz;
 
-	if ((ret->conf_file = fopen(file_path, "r"))) {
-		PARSER_clean(ret);
-		return NULL;
-	}
-
-	if (PARSER_next_section(ret)) {
+	if ((ret->conf_file = fopen(file_path, "r")) == NULL) {
 		PARSER_clean(ret);
 		return NULL;
 	}
@@ -23,68 +24,67 @@ struct ConfParser *PARSER_create(const char *file_path) {
 }
 
 enum PARSER_CODES PARSER_next_section(struct ConfParser *p) {
-	int cur;
-	while ((cur = fgetc(p->conf_file)) != '[' && cur != EOF);
-	
-	if (cur == EOF) return END_OF_FILE;
-
-	{
-		int buf_sz = 128;
-		char tmp_buf[buf_sz]; // Section length shouldnt get super long for my purposes
-		int index = 0;
-		while ((cur = fgetc(p->conf_file)) != ']' && cur != EOF) {
-			if (index == buf_sz) return SECTION_TOO_LONG;
-			tmp_buf[index] = cur;
-			++index;
-		}
-
-		if (cur == EOF) return END_OF_FILE; // TODO: EOF needs to be an error here; in other places its just 
-											// a fact that doesnt violate syntax
-
-		free(p->section);
-		p->section = strdup(tmp_buf);
+	int cur = 0;
+	while ((cur = fgetc(p->conf_file)) != '[') {
+		if (cur == EOF) return END_OF_FILE;
 	}
+	
 
-	return PARSER_next_kv(p);
+	int index = 0;
+	while ((cur = fgetc(p->conf_file)) != ']') {
+		if (cur == EOF) log_err(__FILE__, __LINE__, "Expected ], got end of file.");
+		else if (cur == '#') log_err(__FILE__, __LINE__, "Expected ], got comment.");
+
+		if (index == p->buf_sz - 2) return SECTION_TOO_LONG;
+		p->section[index] = cur;
+		++index;
+	}
+	p->section[index] = '\0';
+
+	while ((cur = fgetc(p->conf_file)) != '\n' && cur != EOF);
+	return SUCCESS;
 }
 
 enum PARSER_CODES PARSER_next_kv(struct ConfParser *p) {
-	int cur;
-	while ((cur = fgetc(p->conf_file)) != '\n' && cur != EOF);
+	int cur = 0;
 
-	if (cur == EOF) return END_OF_FILE;
-
-	{
-		int buf_sz = 256;
-		char tmp_buf[buf_sz];
-		int index = 0;
-		while ((cur = fgetc(p->conf_file)) != '=' && cur != EOF) {
-			if (index == buf_sz) return SECTION_TOO_LONG;
-			tmp_buf[index] = cur;
-			++index;
+	int index = 0;
+	while ((cur = fgetc(p->conf_file)) != '=') {
+		if (cur == EOF) return END_OF_FILE;
+		else if (cur == '[') {
+			fseek(p->conf_file, ftell(p->conf_file) - 1, SEEK_SET);
+			return END_OF_SECTION;
 		}
-
-		if (cur == EOF) return END_OF_FILE; // TODO: same as above
-
-		free(p->key);
-		p->key = strdup(tmp_buf);
-	}
-
-	{
-		int buf_sz = 1024;
-		char tmp_buf[buf_sz];
-		int index = 0;
-		while ((cur = fgetc(p->conf_file)) != '\n' && cur != EOF) {
-			if (index == buf_sz) return SECTION_TOO_LONG;
-			tmp_buf[index] = cur;
-			++index;
+		else if (cur == '#') {
+			while (fgetc(p->conf_file) != '\n');
+			break;
 		}
+		else if (cur == ' ' || cur == '\t') continue;
 
-		if (cur == EOF) return END_OF_FILE; // TODO: same as above
 
-		free(p->value);
-		p->value = strdup(tmp_buf);
+		if (index == p->buf_sz - 2) return SECTION_TOO_LONG;
+		p->key[index] = cur;
+		++index;
 	}
+	p->key[index] = '\0';
+
+
+	index = 0;
+	while ((cur = fgetc(p->conf_file)) != '\n') {
+		if (cur == EOF) log_err(__FILE__, __LINE__, "Expected value, got end of file.");
+		else if (cur == '[') log_err(__FILE__, __LINE__, "Expected value, got section begin");
+		else if (cur == '#') {
+			while (fgetc(p->conf_file) != '\n');
+			break;
+		}
+		else if (cur == ' ' || cur == '\t') continue;
+
+
+		if (index == p->buf_sz - 2) return SECTION_TOO_LONG;
+		p->value[index] = cur;
+		++index;
+	}
+	p->value[index] = '\0';
 
 	return SUCCESS;
 }

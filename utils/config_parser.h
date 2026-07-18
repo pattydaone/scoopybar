@@ -4,6 +4,8 @@
 #include <stdio.h>
 
 struct ConfParser {
+	int buf_sz;
+
 	FILE *conf_file;
 
 	char *section;
@@ -15,10 +17,11 @@ struct ConfParser {
 enum PARSER_CODES {
 	END_OF_FILE,
 	SUCCESS,
-	SECTION_TOO_LONG
+	SECTION_TOO_LONG,
+	END_OF_SECTION
 };
 
-struct ConfParser *PARSER_create(const char *file_path);
+struct ConfParser *PARSER_create(const char *file_path, int buf_sz);
 
 enum PARSER_CODES PARSER_next_section(struct ConfParser *p);
 

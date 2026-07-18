@@ -157,9 +157,7 @@ static void create_surface(struct output *output) {
     output->surface.wl_surface = wl_compositor_create_surface(data->wl_compositor);
 
 	if (output->surface.wl_surface == NULL) {
-		char msg[512];
-		sprintf(msg, "Failed to create wl_surface for output %s", output->name);
-		log_err(__FILE__, __LINE__, msg);
+		log_err(__FILE__, __LINE__, "Failed to create wl_surface for output %s", output->name);
 	}
 	
 	output->surface.layer_surface = zwlr_layer_shell_v1_get_layer_surface(
@@ -167,9 +165,7 @@ static void create_surface(struct output *output) {
 			ZWLR_LAYER_SHELL_V1_LAYER_TOP, "panel");
 
 	if (output->surface.layer_surface == NULL) {
-		char msg[512];
-		sprintf(msg, "Failed to create layer_surface for output %s", output->name);
-		log_err(__FILE__, __LINE__, msg);
+		log_err(__FILE__, __LINE__, "Failed to create layer_surface for output %s", output->name);
 	}
 
 	zwlr_layer_surface_v1_add_listener(output->surface.layer_surface, &zwlr_surface_listener, output);
@@ -235,9 +231,7 @@ static const struct wl_output_listener wl_output_listener = {
 void check_version(const char *interface, uint32_t required, uint32_t actual) {
 	if (actual >= required) return;
 	
-	char msg[512];
-	sprintf(msg, "Version for interface %s is %d, where %d is required", interface, actual, required);
-	log_err(__FILE__, __LINE__, msg);
+	log_err(__FILE__, __LINE__, "Version for interface %s is %d, where %d is required.", interface, actual, required);
 }
 
 static void registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version) {
@@ -246,31 +240,31 @@ static void registry_global(void *data, struct wl_registry *wl_registry, uint32_
 		check_version(interface, 1, version);
 
 		state->wl_shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, 1);
-		log_dbg(__FILE__, __LINE__, "Binded to wl_shm.", 3);
+		log_dbg(__FILE__, __LINE__, 3, "Binded to wl_shm.");
 	}
 	else if (strcmp(interface, wl_compositor_interface.name) == 0) {
 		check_version(interface, 4, version);
 
 		state->wl_compositor = wl_registry_bind(wl_registry, name, &wl_compositor_interface, 4);
-		log_dbg(__FILE__, __LINE__, "Binded to wl_compositor.", 3);
+		log_dbg(__FILE__, __LINE__, 3, "Binded to wl_compositor.");
 	}
 	else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
 		check_version(interface, 3, version);
 
 		state->zwlr_layer_shell = wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, 3);
-		log_dbg(__FILE__, __LINE__, "Binded to zwlr_layer_shell.", 3);
+		log_dbg(__FILE__, __LINE__, 3, "Binded to zwlr_layer_shell.");
 	}
 	else if (strcmp(interface, wl_output_interface.name) == 0) {
 		check_version(interface, 4, version);
 
 		struct output *out = malloc(sizeof(struct output));
 		out->output = wl_registry_bind(wl_registry, name, &wl_output_interface, 4);
-		log_dbg(__FILE__, __LINE__, "Binded to wl_output.", 3);
+		log_dbg(__FILE__, __LINE__, 3, "Binded to wl_output.");
 
 		out->backend = state;
 
 		wl_output_add_listener(out->output, &wl_output_listener, out);
-		log_dbg(__FILE__, __LINE__, "Added wl_output listener.", 3);
+		log_dbg(__FILE__, __LINE__, 3, "Added wl_output listener.");
 
 		LL_push_back(state->outputs, out, OUTPUT);
 	}
