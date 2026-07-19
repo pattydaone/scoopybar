@@ -17,8 +17,11 @@ struct ConfParser {
 enum PARSER_CODES {
 	END_OF_FILE,
 	SUCCESS,
-	SECTION_TOO_LONG,
-	END_OF_SECTION
+	END_OF_SECTION,
+	SECTION_TOO_LONG_ERR,
+	KEY_TOO_LONG_ERR,
+	VALUE_TOO_LONG_ERR,
+	MISSING_TOK_ERR
 };
 
 struct ConfParser *PARSER_create(const char *file_path, int buf_sz);
@@ -27,6 +30,6 @@ enum PARSER_CODES PARSER_next_section(struct ConfParser *p);
 
 enum PARSER_CODES PARSER_next_kv(struct ConfParser *p);
 
-void PARSER_clean(struct ConfParser *p);
+int PARSER_clean(struct ConfParser *p);
 
 #endif

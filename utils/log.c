@@ -2,7 +2,6 @@
 #include "log.h"
 
 #include <stdarg.h>
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -32,7 +31,6 @@ void log_err(const char *file, int line, const char *format, ...) {
 	va_end(va);
 
 	fputs("\n", log_file);
-	exit(1);
 }
 
 void log_dbg(const char *file, int line, int level, const char *format, ...) {

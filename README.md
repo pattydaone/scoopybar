@@ -31,7 +31,8 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 - [ ] Scale stuff properly
 - [X] Add some error checking
 - [X] Logging
-- [ ] "Improve" logging API with printf-like formatting
+- [X] "Improve" logging API with printf-like formatting
+- [X] .ini file parser
 - [ ] Figure out how I intend to attach buffers (using pixman)
 - [ ] Configuration for bar
 - [ ] Add basic items

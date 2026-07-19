@@ -1,0 +1,11 @@
+[bar]
+# This is a comment
+key=value
+# heres another !
+
+key=value #and one more for the road
+
+[bar2]
+# TODO: another comment yayyyy
+
+key=valueagain
