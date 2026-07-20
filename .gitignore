@@ -2,3 +2,4 @@ bin/
 *.o
 .exrc
 compile_commands.json
+.cache
