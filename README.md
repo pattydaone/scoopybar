@@ -33,7 +33,10 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 - [X] Logging
 - [X] "Improve" logging API with printf-like formatting
 - [X] .ini file parser
-- [ ] Figure out how I intend to attach buffers (using pixman)
+- [X] Figure out how I intend to attach buffers (using pixman)
+- [ ] Add double buffering with two separate buffers
+- [ ] Add wl_callbacks to handle rendering those buffers
+- [ ] Figure out how to actually write to those buffers via pixman
 - [ ] Configuration for bar
 - [ ] Add basic items
 - [ ] Figure out text rendering

@@ -4,7 +4,7 @@
 #include "../include/wlr-layer-shell-unstable-v1.h"
 #include "../include/xdg-output-unstable-v1.h"
 
-#include <sys/types.h>
+#include <stdint.h>
 
 struct output {
 	struct wl_output *output;
@@ -31,11 +31,14 @@ struct bar_backend {
 	struct wl_registry *wl_registry;
 	struct wl_shm *wl_shm;
 	struct zwlr_layer_shell_v1 *zwlr_layer_shell;
+	struct wl_callback *cb;
 
 	struct output_node *outputs;
 
 	uint32_t width;
 	uint32_t height;
+
+	struct bar_buf *buf;
 };
 
 struct bar_backend *init_bar_backend();

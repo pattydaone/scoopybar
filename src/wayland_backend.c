@@ -25,6 +25,20 @@
 #include <time.h>
 #include <unistd.h>
 
+struct bar_buf {
+	struct wl_buffer *wl_buf;
+	
+	void *map;
+	int shm_fd;
+
+	uint32_t width;
+	uint32_t height;
+	uint32_t size;
+
+	pixman_image_t *pix;
+};
+
+// Taken from wayland-book.com from here...
 static void
 randname(char *buf)
 {
@@ -42,7 +56,7 @@ create_shm_file(void)
 {
     int retries = 100;
     do {
-        char name[] = "/wl_shm-XXXXXX";
+        char name[] = "/bar-shm-XXXXXX";
         randname(name + sizeof(name) - 7);
         --retries;
         int fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600);
@@ -70,10 +84,13 @@ allocate_shm_file(size_t size)
     }
     return fd;
 }
+// To here
 
 static void
-wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
-{
+wl_buffer_release(void *data, struct wl_buffer *wl_buffer) {
+	struct bar_buf *state = data;
+	munmap(state->map, state->size);
+	// TODO: Destroy data->pix
     wl_buffer_destroy(wl_buffer);
 }
 
@@ -81,49 +98,45 @@ static const struct wl_buffer_listener wl_buffer_listener = {
     .release = &wl_buffer_release,
 };
 
-static struct wl_buffer *
-draw_frame(struct output *state, uint32_t x, uint32_t y)
-{
-    const int width = state->surface.width;
-	const int height = state->surface.height;
-    int stride = width * 4;
-    int size = stride * height;
+struct bar_buf *create_buffer(struct bar_backend *bar) {
+	int height = bar->height;
+	int width = bar->width;
+	/* BPP is bits per pixel, and stride requires bytes, so we divide by 8.
+	 * a8r8g8b8 is divisible by 8, so we need not account for loss of remainder
+	 */ 
+	int stride = width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8;
+	int size = 2 * height * stride;
 
-    int fd = allocate_shm_file(size);
-    if (fd == -1) {
-        return NULL;
-    }
+	int fd = allocate_shm_file(size);
+	if (fd == -1) return NULL;
 
-    uint32_t *data = mmap(NULL, size,
-            PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (data == MAP_FAILED) {
-        close(fd);
-        return NULL;
-    }
+	uint32_t *mmapping = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
-    struct wl_shm_pool *pool = wl_shm_create_pool(state->backend->wl_shm, fd, size);
-    struct wl_buffer *buffer = wl_shm_pool_create_buffer(pool, 0,
-            width, height, stride, WL_SHM_FORMAT_XRGB8888);
-    wl_shm_pool_destroy(pool);
-    close(fd);
+	if (mmapping == MAP_FAILED) {
+		close(fd);
+		return NULL;
+	}
 
-    /* Draw checkerboxed background */
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            if ((x + y / 8 * 8) % 16 < 8)
-                data[y * width + x] = 0xFF666666;
-            else
-                data[y * width + x] = 0xFFEEEEEE;
-        }
-    }
+	struct wl_shm_pool *pool = wl_shm_create_pool(bar->wl_shm, fd, size);
+	struct wl_buffer *wl_buf = wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
+	wl_shm_pool_destroy(pool);
+	close(fd);
 
-    munmap(data, size);
-    wl_buffer_add_listener(buffer, &wl_buffer_listener, NULL);
-    return buffer;
+	struct bar_buf *buf = malloc(sizeof(struct bar_buf));
+	buf->height = height;
+	buf->width = width;
+	buf->size = size;
+	buf->map = mmapping;
+	buf->wl_buf = wl_buf;
+	buf->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, width, height, mmapping, stride);
+
+	wl_buffer_add_listener(buf->wl_buf, &wl_buffer_listener, buf);
+	log_dbg(__FILE__, __LINE__, 3, "Successfully created buffer and binded to wl_buffer.");
+
+	bar->buf = buf;
+
+	return buf;
 }
-
-/* End Temp */
-
 
 // START: wlr_surface_listener code
 
@@ -131,8 +144,9 @@ static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *sur
 	struct output *state = data;
 	zwlr_layer_surface_v1_ack_configure(surface, serial);
 
-	struct wl_buffer *buffer = draw_frame(state, width, height);
-    wl_surface_attach(state->surface.wl_surface, buffer, 0, 0);
+	struct bar_buf *buffer = create_buffer(state->backend);
+	assert( buffer != NULL );
+    wl_surface_attach(state->surface.wl_surface, buffer->wl_buf, 0, 0);
     wl_surface_commit(state->surface.wl_surface);
 }
 
@@ -227,6 +241,23 @@ static const struct wl_output_listener wl_output_listener = {
 };
 
 // END: wl_output_listener code
+
+static const struct wl_callback_listener wl_callback_listener;
+
+static void wl_callback_done(void *data, struct wl_callback *wl_cb, uint32_t cb_data) {
+	wl_callback_destroy(wl_cb);
+
+	struct output *output = data;
+	wl_cb = wl_surface_frame(output->surface.wl_surface);
+	wl_callback_add_listener(wl_cb, &wl_callback_listener, output);
+	
+	// TODO: actually, you know, do things
+}
+
+static const struct wl_callback_listener wl_callback_listener = {
+	.done = &wl_callback_done
+};
+
 
 void check_version(const char *interface, uint32_t required, uint32_t actual) {
 	if (actual >= required) return;
