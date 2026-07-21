@@ -3,6 +3,7 @@
 
 #include "../include/wlr-layer-shell-unstable-v1.h"
 #include "../include/xdg-output-unstable-v1.h"
+#include <pixman.h>
 
 #include <stdint.h>
 
@@ -18,6 +19,8 @@ struct output {
 	struct surface_buf *pending_buf;
 	struct bar_backend *backend;
 	struct wl_callback *cb;
+	uint32_t color_offset;
+	pixman_color_t color;
 
 	struct {
 		struct wl_surface *wl_surface;
