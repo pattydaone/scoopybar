@@ -14,8 +14,6 @@
 
 #include <pixman.h>
 
-/* Temp */ 
-
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -25,7 +23,7 @@
 #include <time.h>
 #include <unistd.h>
 
-struct bar_buf {
+struct surface_buf {
 	struct wl_buffer *wl_buf;
 	
 	void *map;
@@ -36,6 +34,8 @@ struct bar_buf {
 	uint32_t size;
 
 	pixman_image_t *pix;
+
+	bool busy;
 };
 
 // Taken from wayland-book.com from here...
@@ -88,17 +88,17 @@ allocate_shm_file(size_t size)
 
 static void
 wl_buffer_release(void *data, struct wl_buffer *wl_buffer) {
-	struct bar_buf *state = data;
-	munmap(state->map, state->size);
-	// TODO: Destroy data->pix
-    wl_buffer_destroy(wl_buffer);
+	struct surface_buf *state = data;
+	log_dbg(__FILE__, __LINE__, 3, "Buffer release.");
+	state->busy = false;
 }
 
 static const struct wl_buffer_listener wl_buffer_listener = {
     .release = &wl_buffer_release,
 };
 
-struct bar_buf *create_buffer(struct bar_backend *bar) {
+struct surface_buf *create_buffer(struct output *output) {
+	struct bar_backend *bar = output->backend;
 	int height = bar->height;
 	int width = bar->width;
 	/* BPP is bits per pixel, and stride requires bytes, so we divide by 8.
@@ -118,25 +118,68 @@ struct bar_buf *create_buffer(struct bar_backend *bar) {
 	}
 
 	struct wl_shm_pool *pool = wl_shm_create_pool(bar->wl_shm, fd, size);
+	if (pool == NULL) {
+		log_err(__FILE__, __LINE__, "Failed to create shared memory pool.");
+		exit(1);
+	}
+
 	struct wl_buffer *wl_buf = wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
+	if (wl_buf == NULL) {
+		log_err(__FILE__, __LINE__, "Failed to create wl_buffer.");
+		exit(1);
+	}
+
 	wl_shm_pool_destroy(pool);
 	close(fd);
 
-	struct bar_buf *buf = malloc(sizeof(struct bar_buf));
+	struct surface_buf *buf = malloc(sizeof(struct surface_buf));
 	buf->height = height;
 	buf->width = width;
 	buf->size = size;
 	buf->map = mmapping;
 	buf->wl_buf = wl_buf;
-	buf->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, width, height, mmapping, stride);
+	buf->pix = pixman_image_create_bits(PIXMAN_a8r8g8b8, width, height, mmapping, stride);
+	if (buf->pix == NULL) {
+		log_err(__FILE__, __LINE__, "Failed to create pixman image.");
+	}
 
 	wl_buffer_add_listener(buf->wl_buf, &wl_buffer_listener, buf);
 	log_dbg(__FILE__, __LINE__, 3, "Successfully created buffer and binded to wl_buffer.");
 
-	bar->buf = buf;
+	output->buf = buf;
 
 	return buf;
 }
+
+bool commit(struct output *out);
+
+static const struct wl_callback_listener wl_callback_listener;
+
+static void wl_callback_done(void *data, struct wl_callback *wl_cb, uint32_t cb_data) {
+	log_dbg(__FILE__, __LINE__, 3, "Frame callback.");
+	
+	wl_callback_destroy(wl_cb);
+
+	struct output *output = data;
+	output->cb = wl_surface_frame(output->surface.wl_surface);
+	wl_callback_add_listener(output->cb, &wl_callback_listener, output);
+	wl_display_flush(output->backend->wl_display);
+
+	if (!output->buf->busy) {
+		log_dbg(__FILE__, __LINE__, 3, "Buffer not busy.");
+		commit(output);
+
+		output->buf->busy = true;
+		wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, output->surface.width, output->surface.height);
+		wl_surface_commit(output->surface.wl_surface);
+		wl_display_flush(output->backend->wl_display);
+	}
+}
+
+static const struct wl_callback_listener wl_callback_listener = {
+	.done = &wl_callback_done
+};
+
 
 // START: wlr_surface_listener code
 
@@ -144,10 +187,26 @@ static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *sur
 	struct output *state = data;
 	zwlr_layer_surface_v1_ack_configure(surface, serial);
 
-	struct bar_buf *buffer = create_buffer(state->backend);
+	struct surface_buf *buffer = create_buffer(state);
 	assert( buffer != NULL );
+
+	pixman_color_t purp = { 26214, 13107, 39321, 0xffff };
+	pixman_image_t *fill = pixman_image_create_solid_fill(&purp);
+
+	pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, buffer->pix, 0, 0, 0, 0, 0, 0, buffer->width, buffer->height);
+
     wl_surface_attach(state->surface.wl_surface, buffer->wl_buf, 0, 0);
     wl_surface_commit(state->surface.wl_surface);
+
+	log_dbg(__FILE__, __LINE__, 3, "Surface object for output %s configured.", state->name);
+
+	state->cb = wl_surface_frame(state->surface.wl_surface);
+	if (state->cb == NULL) {
+		log_err(__FILE__, __LINE__, "Failed to create callback object for output %s.", state->name);
+		exit(1);
+	}
+	wl_callback_add_listener(state->cb, &wl_callback_listener, state);
+	wl_display_flush(state->backend->wl_display);
 }
 
 static void zwlr_surface_closed(void *data, struct zwlr_layer_surface_v1 *surface) {
@@ -169,9 +228,9 @@ static void create_surface(struct output *output) {
 	output->surface.width = data->width;
 
     output->surface.wl_surface = wl_compositor_create_surface(data->wl_compositor);
-
 	if (output->surface.wl_surface == NULL) {
 		log_err(__FILE__, __LINE__, "Failed to create wl_surface for output %s", output->name);
+		exit(1);
 	}
 	
 	output->surface.layer_surface = zwlr_layer_shell_v1_get_layer_surface(
@@ -180,6 +239,7 @@ static void create_surface(struct output *output) {
 
 	if (output->surface.layer_surface == NULL) {
 		log_err(__FILE__, __LINE__, "Failed to create layer_surface for output %s", output->name);
+		exit(1);
 	}
 
 	zwlr_layer_surface_v1_add_listener(output->surface.layer_surface, &zwlr_surface_listener, output);
@@ -194,6 +254,7 @@ static void create_surface(struct output *output) {
 											 output->surface.height);
 
     wl_surface_commit(output->surface.wl_surface);
+	log_dbg(__FILE__, __LINE__, 3, "Surface created for output %s", output->name);
 }
 
 // START: wl_output_listener code
@@ -242,27 +303,12 @@ static const struct wl_output_listener wl_output_listener = {
 
 // END: wl_output_listener code
 
-static const struct wl_callback_listener wl_callback_listener;
-
-static void wl_callback_done(void *data, struct wl_callback *wl_cb, uint32_t cb_data) {
-	wl_callback_destroy(wl_cb);
-
-	struct output *output = data;
-	wl_cb = wl_surface_frame(output->surface.wl_surface);
-	wl_callback_add_listener(wl_cb, &wl_callback_listener, output);
-	
-	// TODO: actually, you know, do things
-}
-
-static const struct wl_callback_listener wl_callback_listener = {
-	.done = &wl_callback_done
-};
-
 
 void check_version(const char *interface, uint32_t required, uint32_t actual) {
 	if (actual >= required) return;
 	
 	log_err(__FILE__, __LINE__, "Version for interface %s is %d, where %d is required.", interface, actual, required);
+	exit(1);
 }
 
 static void registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version) {
@@ -310,6 +356,18 @@ static const struct wl_registry_listener registry_listener = {
 	.global_remove = &registry_global_remove
 };
 
+bool commit(struct output *out) {
+	log_dbg(__FILE__, __LINE__, 3, "Function \"commit\" called.");
+
+	pixman_color_t purp = { 0xffff, 0xffff, 0xffff, 0xffff };
+	pixman_image_t *fill = pixman_image_create_solid_fill(&purp);
+
+	struct surface_buf *buf = out->buf;
+	pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, buf->pix, 0, 0, 0, 0, 0, 0, buf->width, buf->height);
+
+	return true;
+}
+
 struct bar_backend *init_bar_backend() {
 	struct bar_backend *ret = malloc(sizeof(struct bar_backend));
 	ret->width = 1920;
@@ -322,5 +380,6 @@ struct bar_backend *init_bar_backend() {
     while (wl_display_dispatch(ret->wl_display)) {
         /* This space deliberately left blank */
     }
+
 	return ret;
 }

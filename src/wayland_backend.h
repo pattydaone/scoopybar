@@ -14,7 +14,10 @@ struct output {
 	uint32_t transform;
 	char *name;
 
+	struct surface_buf *rendering_buf;
+	struct surface_buf *pending_buf;
 	struct bar_backend *backend;
+	struct wl_callback *cb;
 
 	struct {
 		struct wl_surface *wl_surface;
@@ -31,14 +34,11 @@ struct bar_backend {
 	struct wl_registry *wl_registry;
 	struct wl_shm *wl_shm;
 	struct zwlr_layer_shell_v1 *zwlr_layer_shell;
-	struct wl_callback *cb;
 
 	struct output_node *outputs;
 
 	uint32_t width;
 	uint32_t height;
-
-	struct bar_buf *buf;
 };
 
 struct bar_backend *init_bar_backend();
