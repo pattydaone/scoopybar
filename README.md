@@ -37,6 +37,7 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 - [X] Add double buffering with two separate buffers
 - [X] Add wl_callbacks to handle rendering those buffers
 - [X] Figure out how to actually write to those buffers via pixman
+- [ ] Have bar follow workspace changes
 - [ ] Configuration for bar
 - [ ] Add basic items
 - [ ] Figure out text rendering

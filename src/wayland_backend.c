@@ -36,7 +36,8 @@ struct surface_buf {
 
 	pixman_image_t *pix;
 
-	bool busy;
+	bool busy; // Buffer is currently being rendered (=> rendering_buf)
+	bool ready; // Buffer is ready to be rendered
 };
 
 // Taken from wayland-book.com from here...
@@ -168,24 +169,21 @@ static void wl_callback_done(void *data, struct wl_callback *wl_cb, uint32_t cb_
 
 	output->cb = wl_surface_frame(output->surface.wl_surface);
 	wl_callback_add_listener(output->cb, &wl_callback_listener, output);
-	wl_display_flush(output->backend->wl_display);
 
-	log_dbg(__FILE__, __LINE__, 4, "Buffer not busy.");
-	output->color_offset = cb_data - output->color_offset;
-	commit(output);
+	if (output->pending_buf->ready) {
+		log_dbg(__FILE__, __LINE__, 4, "Buffer ready.");
+		output->pending_buf->busy = true;
+		output->pending_buf->ready = false;
 
-	output->pending_buf->busy = true;
+		struct surface_buf *tmp = output->rendering_buf;
+		output->rendering_buf = output->pending_buf;
+		output->pending_buf = tmp;
 
-	struct surface_buf *tmp = output->rendering_buf;
-	output->rendering_buf = output->pending_buf;
-	output->pending_buf = tmp;
-
-	wl_surface_attach(output->surface.wl_surface, output->rendering_buf->wl_buf, 0, 0);
-	wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, INT32_MAX, INT32_MAX);
-	wl_surface_commit(output->surface.wl_surface);
-	wl_display_flush(output->backend->wl_display);
-
-	output->color_offset = cb_data;
+		wl_surface_attach(output->surface.wl_surface, output->rendering_buf->wl_buf, 0, 0);
+		wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, INT32_MAX, INT32_MAX);
+		wl_surface_commit(output->surface.wl_surface);
+		wl_display_flush(output->backend->wl_display);
+	}
 }
 
 static const struct wl_callback_listener wl_callback_listener = {
@@ -203,11 +201,12 @@ static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *sur
 
 	struct surface_buf *buffer = state->rendering_buf;
 
-	pixman_color_t initial = { 26214, 13107, 39321, 0xffff };
+	pixman_color_t initial = { 0, 0, 0, 0xffff };
 	state->color = initial;
 	pixman_image_t *fill = pixman_image_create_solid_fill(&state->color);
 
 	pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, buffer->pix, 0, 0, 0, 0, 0, 0, buffer->width, buffer->height);
+	pixman_image_unref(fill);
 
 	log_dbg(__FILE__, __LINE__, 3, "Surface object for output %s configured.", state->name);
 
@@ -397,6 +396,10 @@ bool commit(struct output *out) {
 
 	struct surface_buf *buf = out->pending_buf;
 	pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, buf->pix, 0, 0, 0, 0, 0, 0, buf->width, buf->height);
+
+	pixman_image_unref(fill);
+
+	buf->ready = true;
 
 	return true;
 }
