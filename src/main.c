@@ -1,9 +1,12 @@
 #include <stdlib.h>
 
-#include "wayland_backend.h"
+#include "../utils/config_parser.h"
+#include "bar.h"
 
 int main(void) {
-	struct bar_backend *bar = init_bar_backend();
+	struct ConfParser *p = PARSER_create("/home/patrick/Projects/scoopybar/configurations/config.ini", 512);
+	struct bar *bar = init_bar(p);
 	free(bar);
+
 	return 0;
 }

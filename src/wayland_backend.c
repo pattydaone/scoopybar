@@ -1,8 +1,9 @@
 #include "wayland_backend.h"
+#include "bar.h"
 #include "ll.h"
 #include "../utils/log.h"
+#include "wlr-layer-shell-unstable-v1.h"
 
-#include <math.h>
 #include <stdio.h>
 #include <assert.h>
 #include <stdint.h>
@@ -201,9 +202,7 @@ static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *sur
 
 	struct surface_buf *buffer = state->rendering_buf;
 
-	pixman_color_t initial = { 0, 0, 0, 0xffff };
-	state->color = initial;
-	pixman_image_t *fill = pixman_image_create_solid_fill(&state->color);
+	pixman_image_t *fill = pixman_image_create_solid_fill(state->backend->background_color);
 
 	pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, buffer->pix, 0, 0, 0, 0, 0, 0, buffer->width, buffer->height);
 	pixman_image_unref(fill);
@@ -239,6 +238,11 @@ static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener = {
 static void create_surface(struct output *output) {
 	struct bar_backend *data = output->backend;
 
+	if (strstr(data->bar_frontend->displays, output->name) != 0 &&
+		strstr(data->bar_frontend->displays, "all") != 0) {
+		return;
+	}
+
 	output->surface.height = data->height;
 	output->surface.width = data->width;
 
@@ -247,10 +251,27 @@ static void create_surface(struct output *output) {
 		log_err(__FILE__, __LINE__, "Failed to create wl_surface for output %s", output->name);
 		exit(1);
 	}
+
+	enum zwlr_layer_shell_v1_layer layer = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
+
+	switch (output->backend->bar_frontend->layer) {
+		case (BAR_LAYER_BACKGROUND):
+			layer = ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND;
+			break;
+		case (BAR_LAYER_BOTTOM):
+			layer = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
+			break;
+		case (BAR_LAYER_OVERLAY):
+			layer = ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY;
+			break;
+		case (BAR_LAYER_TOP):
+			layer = ZWLR_LAYER_SHELL_V1_LAYER_TOP;
+			break;
+	}
 	
 	output->surface.layer_surface = zwlr_layer_shell_v1_get_layer_surface(
 			data->zwlr_layer_shell, output->surface.wl_surface, output->output, 
-			ZWLR_LAYER_SHELL_V1_LAYER_TOP, "panel");
+			layer, "panel");
 
 	if (output->surface.layer_surface == NULL) {
 		log_err(__FILE__, __LINE__, "Failed to create layer_surface for output %s", output->name);
@@ -261,9 +282,25 @@ static void create_surface(struct output *output) {
 
 	zwlr_layer_surface_v1_set_size(output->surface.layer_surface, 
 								   data->width, data->height);
+
+	enum zwlr_layer_surface_v1_anchor location = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+
+	switch (output->backend->bar_frontend->pos) {
+		case (BAR_TOP):
+			location = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+			break;
+		case (BAR_BOTTOM):
+			location = ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+			break;
+		case (BAR_LEFT):
+			location = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+			break;
+		case (BAR_RIGHT):
+			location = ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+			break;
+	}
 	
-	zwlr_layer_surface_v1_set_anchor(output->surface.layer_surface, 
-			ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP);
+	zwlr_layer_surface_v1_set_anchor(output->surface.layer_surface, location);
 
 	zwlr_layer_surface_v1_set_exclusive_zone(output->surface.layer_surface,	
 											 output->surface.height);
@@ -388,26 +425,18 @@ static const struct wl_registry_listener registry_listener = {
 bool commit(struct output *out) {
 	log_dbg(__FILE__, __LINE__, 4, "Function \"commit\" called.");
 
-	out->color.red += 10*out->color_offset;
-	out->color.green += 10*out->color_offset;
-	out->color.blue += 10*out->color_offset;
-
-	pixman_image_t *fill = pixman_image_create_solid_fill(&out->color);
-
-	struct surface_buf *buf = out->pending_buf;
-	pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, buf->pix, 0, 0, 0, 0, 0, 0, buf->width, buf->height);
-
-	pixman_image_unref(fill);
-
-	buf->ready = true;
-
 	return true;
 }
 
-struct bar_backend *init_bar_backend() {
+struct bar_backend *init_bar_backend(struct bar *bar) {
 	struct bar_backend *ret = malloc(sizeof(struct bar_backend));
-	ret->width = 1920;
-	ret->height = 40;
+
+	ret->bar_frontend = bar;
+	ret->width = bar->width;
+	ret->height = bar->height;
+	ret->background_color = &bar->background_color;
+	ret->background_color->alpha = 65535 * bar->opacity;
+
 	ret->wl_display = wl_display_connect(NULL);
 	ret->wl_registry = wl_display_get_registry(ret->wl_display);
 	wl_registry_add_listener(ret->wl_registry, &registry_listener, ret);

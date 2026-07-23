@@ -1,6 +1,8 @@
 #ifndef WAYLAND_BACKEND_H
 #define WAYLAND_BACKEND_H
 
+#include "bar.h"
+
 #include "../include/wlr-layer-shell-unstable-v1.h"
 #include "../include/xdg-output-unstable-v1.h"
 #include <pixman.h>
@@ -19,8 +21,6 @@ struct output {
 	struct surface_buf *pending_buf;
 	struct bar_backend *backend;
 	struct wl_callback *cb;
-	uint32_t color_offset;
-	pixman_color_t color;
 
 	struct {
 		struct wl_surface *wl_surface;
@@ -42,9 +42,12 @@ struct bar_backend {
 
 	uint32_t width;
 	uint32_t height;
+	pixman_color_t *background_color;
+
+	struct bar *bar_frontend;
 };
 
-struct bar_backend *init_bar_backend();
+struct bar_backend *init_bar_backend(struct bar *bar);
 
 void init_item_backend();
 

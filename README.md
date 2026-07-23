@@ -25,10 +25,21 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 - Error checking
 - Logging
 
-# Roadmap
+# TODO list
+
+- [ ] Scale stuff properly
+- [ ] Have bar follow workspace changes
+- [ ] Configuration for bar
+- [ ] Add special logging for configuration errors/warnings/etc. (should include config file _line_)
+- [ ] Add basic items
+- [ ] Figure out text rendering
+- [ ] Configuration for text items
+
+# Done
+
+having a list of things ive completed helps keep me sane: no matter how bad things look, i can look back at all i have done and see how far ive come indeed
 
 - [X] Add multi-monitor support
-- [ ] Scale stuff properly
 - [X] Add some error checking
 - [X] Logging
 - [X] "Improve" logging API with printf-like formatting
@@ -37,12 +48,6 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 - [X] Add double buffering with two separate buffers
 - [X] Add wl_callbacks to handle rendering those buffers
 - [X] Figure out how to actually write to those buffers via pixman
-- [ ] Have bar follow workspace changes
-- [ ] Configuration for bar
-- [ ] Add basic items
-- [ ] Figure out text rendering
-- [ ] Configuration for text items
-
 # The design
 
 ## Configuration 
