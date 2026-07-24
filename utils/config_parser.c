@@ -23,6 +23,7 @@ struct ConfParser *PARSER_create(const char *file_path, int buf_sz) {
 	ret->key = malloc(buf_sz);
 	ret->value = malloc(buf_sz);
 	ret->buf_sz = buf_sz;
+	ret->current_line = 1;
 
 	if ((ret->conf_file = fopen(file_path, "r")) == NULL) {
 		PARSER_clean(ret);
@@ -64,6 +65,7 @@ enum PARSER_CODES PARSER_next_section(struct ConfParser *p) {
 	strip_whitespace(p->section, index);
 
 	while ((cur = fgetc(p->conf_file)) != '\n' && cur != EOF);
+	++p->current_line;
 	return SUCCESS;
 }
 
@@ -79,9 +81,14 @@ enum PARSER_CODES PARSER_next_kv(struct ConfParser *p) {
 		}
 		else if (cur == '#') {
 			while (fgetc(p->conf_file) != '\n');
+			++p->current_line;
 			continue;
 		}
-		else if (cur == '\t' || cur == '\n') continue;
+		else if (cur == '\t') continue;
+		else if (cur == '\n') {
+			++p->current_line;
+			continue;
+		}
 
 
 		if (index == p->buf_sz - 2) {
@@ -117,6 +124,7 @@ enum PARSER_CODES PARSER_next_kv(struct ConfParser *p) {
 		p->value[index] = cur;
 		++index;
 	}
+	++p->current_line;
 	if (index == 0) {
 		log_err(__FILE__, __LINE__, "Expected value, got new line.");
 		return MISSING_TOK_ERR;

@@ -9,4 +9,8 @@ void log_err(const char *file, int line, const char *format, ...);
 
 void log_dbg(const char *file, int line, int level, const char *format, ...);
 
+void log_info(const char *file, int line, const char *format, ...);
+
+void log_conf_err(int line, const char *format, ...);
+
 #endif

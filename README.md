@@ -28,9 +28,7 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 # TODO list
 
 - [ ] Scale stuff properly
-- [ ] Have bar follow workspace changes
-- [ ] Configuration for bar
-- [ ] Add special logging for configuration errors/warnings/etc. (should include config file _line_)
+- [ ] Extra configuration testing
 - [ ] Add basic items
 - [ ] Figure out text rendering
 - [ ] Configuration for text items
@@ -48,6 +46,9 @@ having a list of things ive completed helps keep me sane: no matter how bad thin
 - [X] Add double buffering with two separate buffers
 - [X] Add wl_callbacks to handle rendering those buffers
 - [X] Figure out how to actually write to those buffers via pixman
+- [X] Have bar follow workspace changes
+- [X] Configuration for bar
+- [X] Add special logging for configuration errors/warnings/etc. (should include config file _line_)
 # The design
 
 ## Configuration 

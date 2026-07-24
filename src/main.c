@@ -6,7 +6,10 @@
 int main(void) {
 	struct ConfParser *p = PARSER_create("/home/patrick/Projects/scoopybar/configurations/config.ini", 512);
 	struct bar *bar = init_bar(p);
+	if (bar == NULL) {
+		exit(EXIT_FAILURE);
+	}
 	free(bar);
 
-	return 0;
+	return EXIT_SUCCESS;
 }

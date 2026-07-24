@@ -1,6 +1,7 @@
 
 #include "log.h"
 
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -46,4 +47,33 @@ void log_dbg(const char *file, int line, int level, const char *format, ...) {
 	va_end(va);
 
 	fputs("\n", log_file);
+}
+
+void log_info(const char *file, int line, const char *format, ...) {
+	if (log_file == NULL) {
+		log_file = stderr;
+	}
+	fprintf(log_file, "INFO: %s:%d\t", file, line);
+
+	va_list va;
+	va_start(va, format);
+	vfprintf(log_file, format, va);
+	va_end(va);
+
+	fputc('\n', log_file);
+}
+
+void log_conf_err(int line, const char *format, ...) {
+	if (log_file == NULL) {
+		log_file = stderr;
+	}
+
+	fprintf(log_file, "Configuration error: line %d\t", line);
+
+	va_list va;
+	va_start(va, format);
+	vfprintf(log_file, format, va);
+	va_end(va);
+
+	fputc('\n', log_file);
 }

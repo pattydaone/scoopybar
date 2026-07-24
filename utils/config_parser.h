@@ -12,6 +12,8 @@ struct ConfParser {
 
 	char *key;
 	char *value;
+
+	int current_line;
 };
 
 enum PARSER_CODES {
