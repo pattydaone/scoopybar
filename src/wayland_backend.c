@@ -286,7 +286,8 @@ static void create_surface(struct output *output) {
 
 	enum zwlr_layer_surface_v1_anchor location = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
 
-	switch (output->backend->bar_frontend->pos) {
+	enum bar_position bar_pos = output->backend->bar_frontend->pos;
+	switch (bar_pos) {
 		case (BAR_TOP):
 			location = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
 			break;
@@ -304,7 +305,10 @@ static void create_surface(struct output *output) {
 	zwlr_layer_surface_v1_set_anchor(output->surface.layer_surface, location);
 
 	zwlr_layer_surface_v1_set_exclusive_zone(output->surface.layer_surface,	
-											 output->surface.height);
+		bar_pos == BAR_TOP || bar_pos == BAR_BOTTOM ? output->surface.height : output->surface.width);
+
+	int margin = output->backend->bar_frontend->margin;
+	zwlr_layer_surface_v1_set_margin(output->surface.layer_surface, margin, margin, margin, margin);
 
     wl_surface_commit(output->surface.wl_surface);
 	log_dbg(__FILE__, __LINE__, 3, "Surface created for output %s", output->name);

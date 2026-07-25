@@ -33,6 +33,26 @@ struct ConfParser *PARSER_create(const char *file_path, int buf_sz) {
 	return ret;
 }
 
+enum PARSER_CODES PARSER_find(struct ConfParser *p, const char *key, char *des) {
+	if (fsetpos(p->conf_file, &p->cur_section_pos) != 0) {
+		return GENERAL_ERROR;
+	}
+
+	enum PARSER_CODES kv_code;
+	while ((kv_code = PARSER_next_kv(p)) == SUCCESS) {
+		if (strcmp(key, p->key) == 0) {
+			break;
+		}
+	}
+
+	if (kv_code != SUCCESS) {
+		return KEY_NOT_FOUND;
+	}
+
+	strcpy(des, p->value);
+	return SUCCESS;
+}
+
 enum PARSER_CODES PARSER_next_section(struct ConfParser *p) {
 	int cur = 0;
 	while ((cur = fgetc(p->conf_file)) != '[') {
@@ -66,6 +86,9 @@ enum PARSER_CODES PARSER_next_section(struct ConfParser *p) {
 
 	while ((cur = fgetc(p->conf_file)) != '\n' && cur != EOF);
 	++p->current_line;
+	if (fgetpos(p->conf_file, &p->cur_section_pos) != 0) {
+		return GENERAL_ERROR;
+	}
 	return SUCCESS;
 }
 
