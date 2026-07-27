@@ -27,7 +27,12 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 
 # TODO list
 
+- [ ] clang format
 - [ ] Scale stuff properly
+- [ ] Fix margin not working on all sides
+- [ ] Implement border
+- [ ] Start IPC
+- [ ] Add ability to change bar settings on the fly
 - [ ] Extra configuration testing
 - [ ] Add basic items
 - [ ] Figure out text rendering
