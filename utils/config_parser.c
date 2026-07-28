@@ -19,16 +19,16 @@ void strip_whitespace(char *buf, int index) {
 
 struct ConfParser *PARSER_create(const char *file_path, int buf_sz) {
 	struct ConfParser *ret = malloc(sizeof(struct ConfParser));
+	if ((ret->conf_file = fopen(file_path, "r")) == NULL) {
+		free(ret);
+		return NULL;
+	}
 	ret->section = malloc(buf_sz);
 	ret->key = malloc(buf_sz);
 	ret->value = malloc(buf_sz);
 	ret->buf_sz = buf_sz;
 	ret->current_line = 1;
 
-	if ((ret->conf_file = fopen(file_path, "r")) == NULL) {
-		PARSER_clean(ret);
-		return NULL;
-	}
 
 	return ret;
 }

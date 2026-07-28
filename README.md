@@ -31,7 +31,7 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 - [ ] Scale stuff properly
 - [ ] Fix margin not working on all sides
 - [ ] Implement border
-- [ ] Start IPC
+- [ ] Add commandline arguments for sending messages to main bar
 - [ ] Add ability to change bar settings on the fly
 - [ ] Extra configuration testing
 - [ ] Add basic items
@@ -54,6 +54,7 @@ having a list of things ive completed helps keep me sane: no matter how bad thin
 - [X] Have bar follow workspace changes
 - [X] Configuration for bar
 - [X] Add special logging for configuration errors/warnings/etc. (should include config file _line_)
+- [X] Start IPC
 # The design
 
 ## Configuration 
