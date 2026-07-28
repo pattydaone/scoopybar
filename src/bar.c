@@ -2,10 +2,12 @@
 #include "config.h"
 
 #include <stdlib.h>
+#include <assert.h>
 
 #include "wayland_backend.h"
 
 struct bar *init_bar(struct ConfParser *p) {
+	assert( p != NULL );
 	struct bar *ret = malloc(sizeof(struct bar));
 
 	enum PARSER_CODES section_code;
