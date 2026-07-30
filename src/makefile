@@ -1,5 +1,5 @@
-src_files := main.c wayland_backend.c bar.c ll.c config.c
-src_objs  := main.o wayland_backend.o bar.o ll.o config.o
+src_files := main.c wayland_backend.c bar.c ll.c config.c ipc.c
+src_objs  := main.o wayland_backend.o bar.o ll.o config.o ipc.o
 
 util_files := ../utils/config_parser.c ../utils/log.c
 util_objs  :=          config_parser.o          log.o

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <errno.h>
 
 #include "../utils/log.h"
 
@@ -16,17 +17,68 @@ bool client_setup(struct bar_ipc *bar_ipc) {
 	struct sockaddr_un *sock = bar_ipc->socket;
 	assert( sock != NULL );
 
-	char *sock_path = getenv("SCOOPYBARSOCK");
+	// char *sock_path = getenv("SCOOPYBARSOCK");
+    char *sock_path = "/tmp/scoopybar-socket";
 	if (sock_path == NULL) {
 		log_err(__FILE__, __LINE__, "Socket not set. Is scoopybar running?");
 		return false;
 	}
 
-	strncpy(sock->sun_path, sock_path, 
-			offsetof(struct sockaddr_un, sun_path) + strlen(sock->sun_path) + 1);
+	strncpy(sock->sun_path, sock_path, sizeof(sock->sun_path) - 1);
 
 	if (connect(bar_ipc->socket_fd, (struct sockaddr *)sock, sizeof(*sock)) == -1) {
 		log_err(__FILE__, __LINE__, "Failed to connect to socket.");
+        switch (errno) {
+            case EACCES:
+                printf("eaccess");
+                break;
+            case EPERM:
+                printf("eperm");
+                break;
+            case EADDRNOTAVAIL:
+                printf("addrnotavail");
+                break;
+            case EADDRINUSE:
+                printf("Address in use");
+                break;
+            case EAFNOSUPPORT:
+                printf("eafnosupport");
+                break;
+            case EAGAIN:
+                printf("eagain");
+                break;
+            case EALREADY:
+                printf("ealready");
+                break;
+            case EBADF:
+                printf("ebadf");
+                break;
+            case ECONNREFUSED:
+                printf("connection refused");
+                break;
+            case EFAULT:
+                printf("efault");
+                break;
+            case EINPROGRESS:
+                printf("in progress");
+                break;
+            case EINTR:
+                printf("eintr");
+                break;
+            case ENOTSOCK:
+                printf("notsock");
+                break;
+            case EPROTOTYPE:
+                printf("prototype");
+                break;
+            case ETIMEDOUT:
+                printf("timdout");
+                break;
+            default:
+                printf("idk"); // keeps outputting this. really glad i made a switch case for all the other fucking ones
+                break;
+        }
+        printf("\n");
 		return false;
 	}
 
@@ -38,9 +90,9 @@ bool server_setup(struct bar_ipc *bar_ipc) {
 	assert( sock != NULL );
 
 	char *sock_path = "/tmp/scoopybar-socket";
-	strncpy(sock->sun_path, sock_path, 
-			offsetof(struct sockaddr_un, sun_path) + strlen(sock->sun_path) + 1);
-	if (!setenv("SCOOPYBARSOCK", sock_path, 0)) {
+	strncpy(sock->sun_path, sock_path, sizeof(sock->sun_path) - 1);
+    sock->sun_family = AF_UNIX;
+	if (setenv("SCOOPYBARSOCK", sock_path, 1) == -1) {
 		log_err(__FILE__, __LINE__, "Failed to set socket.");
 		return false;
 	}
@@ -75,8 +127,24 @@ bool IPC_socket_init(struct bar_ipc *bar_ipc, enum sock_type type) {
 	return client_setup(bar_ipc);
 }
 
-bool IPC_receive_msg(struct bar_ipc *server) {
-	size_t b_read = read(server->socket_fd, server->msg, 1024);
+void IPC_socket_destroy(struct bar_ipc *bar_ipc, enum sock_type type) {
+    assert( bar_ipc != NULL );
+
+    if (close(bar_ipc->socket_fd) == -1) log_err(__FILE__, __LINE__, "Failed to close socket fd.");
+    if (bar_ipc->socket != NULL) {
+        unlink(bar_ipc->socket->sun_path);
+        free(bar_ipc->socket);
+    }
+    free(bar_ipc);
+
+    if (type == SERVER) {
+        unsetenv("SCOOPYBARSOCK");
+    }
+}
+
+bool bar_receive_msg(struct bar_ipc *server) {
+    int accept_fd = accept(server->socket_fd, NULL, NULL);
+	size_t b_read = read(accept_fd, server->msg, sizeof(server->msg));
 	if (b_read == -1) {
 		log_err(__FILE__, __LINE__, "Error reading from socket.");
 		return false;
@@ -87,7 +155,7 @@ bool IPC_receive_msg(struct bar_ipc *server) {
 	return true;
 }
 
-bool IPC_send_msg(struct bar_ipc *client) {
+bool client_send_msg(struct bar_ipc *client) {
 	size_t b_written = write(client->socket_fd, client->msg, client->msg_bytes);
 	if (b_written == -1) {
 		log_err(__FILE__, __LINE__, "Failed to write to socket.");

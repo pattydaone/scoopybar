@@ -28,6 +28,7 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 # TODO list
 
 - [ ] clang format
+- [ ] License: probably MIT
 - [ ] Scale stuff properly
 - [ ] Fix margin not working on all sides
 - [ ] Implement border

@@ -19,8 +19,10 @@ enum sock_type {
 
 bool IPC_socket_init(struct bar_ipc *bar_ipc, enum sock_type type);
 
-bool IPC_receive_msg(struct bar_ipc *server);
+void IPC_socket_destroy(struct bar_ipc *bar_ipc, enum sock_type type);
 
-bool IPC_send_msg(struct bar_ipc *client);
+bool bar_receive_msg(struct bar_ipc *server);
+
+bool client_send_msg(struct bar_ipc *client);
 
 #endif
