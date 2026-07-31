@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include <sys/un.h>
+
 struct bar_ipc {
 	struct sockaddr_un *socket;
 	int socket_fd;

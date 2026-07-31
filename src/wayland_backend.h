@@ -49,6 +49,8 @@ struct bar_backend {
 
 struct bar_backend *init_bar_backend(struct bar *bar);
 
+void destroy_bar_backend(struct bar_backend *backend);
+
 void init_item_backend();
 
 #endif

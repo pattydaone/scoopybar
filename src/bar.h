@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <signal.h>
 
 #include <pixman.h>
 
@@ -25,6 +26,7 @@ enum bar_layer {
 
 struct bar {
 	struct bar_backend *backend;
+    struct bar_ipc *ipc;
 
 	pixman_color_t background_color;
 	float opacity;
@@ -42,5 +44,9 @@ struct bar {
 };
 
 struct bar *init_bar(struct ConfParser *p);
+
+void bar_destroy(struct bar *bar);
+
+void bar_loop(struct bar *bar);
 
 #endif

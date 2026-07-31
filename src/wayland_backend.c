@@ -544,6 +544,7 @@ struct bar_backend *init_bar_backend(struct bar *bar) {
 		cur = cur->next;
 	}
 
+	wl_display_roundtrip(ret->wl_display);
     //while (wl_display_dispatch(ret->wl_display)) {
     //    /* This space deliberately left blank */
     //}

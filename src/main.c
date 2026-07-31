@@ -11,6 +11,12 @@
 #include "wayland_backend.h"
 #include "ipc.h"
 
+extern volatile sig_atomic_t g_sig;
+
+void signal_handler(int sig) {
+    g_sig = sig;
+}
+
 void print_usage() {
 	printf("Usage: scoopybar\n\n");
 	printf("Options:\n");
@@ -81,6 +87,14 @@ int main(int argc, char **argv) {
 		}
 	}
 
+    const struct sigaction handler = {
+        .sa_handler = &signal_handler
+    };
+
+    sigaction(SIGTERM, &handler, NULL);
+    sigaction(SIGINT, &handler, NULL);
+    sigaction(SIGABRT, &handler, NULL);
+
 	struct ConfParser *p = PARSER_create(config_path, 512);
 	if (p == NULL) {
 		exit(EXIT_FAILURE);
@@ -91,21 +105,9 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
-    struct bar_ipc *bar_ipc = malloc(sizeof(struct bar_ipc));
-    bar_ipc->socket = malloc(sizeof(struct sockaddr_un));
+    bar_loop(bar);
 
-    IPC_socket_init(bar_ipc, SERVER) ;
-
-    while (wl_display_dispatch(bar->backend->wl_display)) {
-        printf("hi");
-        fflush(stdout);
-        if (!loop(bar_ipc)) {
-            break;
-        }
-    }
-
-    IPC_socket_init(bar_ipc, SERVER);
-	free(bar);
+    bar_destroy(bar);
 
 	return EXIT_SUCCESS;
 }

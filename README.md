@@ -32,6 +32,7 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 - [ ] Scale stuff properly
 - [ ] Fix margin not working on all sides
 - [ ] Implement border
+- [ ] Move wayland backend to its own thread (?)
 - [ ] Add commandline arguments for sending messages to main bar
 - [ ] Add ability to change bar settings on the fly
 - [ ] Extra configuration testing
@@ -50,12 +51,13 @@ having a list of things ive completed helps keep me sane: no matter how bad thin
 - [X] .ini file parser
 - [X] Figure out how I intend to attach buffers (using pixman)
 - [X] Add double buffering with two separate buffers
-- [X] Add wl_callbacks to handle rendering those buffers
+- [X] Add wl\_callbacks to handle rendering those buffers
 - [X] Figure out how to actually write to those buffers via pixman
 - [X] Have bar follow workspace changes
 - [X] Configuration for bar
 - [X] Add special logging for configuration errors/warnings/etc. (should include config file _line_)
 - [X] Start IPC
+- [X] Signal Handler
 # The design
 
 ## Configuration 
