@@ -34,7 +34,7 @@ struct bar *init_bar(struct ConfParser *p) {
 
 void bar_destroy(struct bar *bar) {
     IPC_socket_destroy(bar->ipc, SERVER);
-    // destroy_bar_backend(bar->backend);
+    // TODO: destroy_bar_backend(bar->backend);
     
     if (bar->displays != NULL) free(bar->displays);
 

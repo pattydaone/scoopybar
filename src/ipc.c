@@ -27,6 +27,7 @@ bool client_setup(struct bar_ipc *bar_ipc) {
 
 	if (connect(bar_ipc->socket_fd, (struct sockaddr *)sock, sizeof(*sock)) == -1) {
 		log_err(__FILE__, __LINE__, "Failed to connect to socket.");
+        /*
         switch (errno) {
             case EACCES:
                 printf("eaccess");
@@ -77,7 +78,7 @@ bool client_setup(struct bar_ipc *bar_ipc) {
                 printf("idk"); // keeps outputting this. really glad i made a switch case for all the other fucking ones
                 break;
         }
-        printf("\n");
+        printf("\n"); */
 		return false;
 	}
 
@@ -151,7 +152,7 @@ void IPC_socket_destroy(struct bar_ipc *bar_ipc, enum sock_type type) {
 bool bar_receive_msg(struct bar_ipc *server) {
     int accept_fd = accept(server->socket_fd, NULL, NULL);
     if (accept_fd == -1) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) { // No connection present.
+        if (errno == EAGAIN || errno == EWOULDBLOCK) { /* No connection present. */
             errno = 0;
             return false;
         }
@@ -168,6 +169,7 @@ bool bar_receive_msg(struct bar_ipc *server) {
         close(accept_fd);
 		return false; // Nothing sent.
 	}
+    server->msg[b_read] = '\0';
     close(accept_fd);
 	return true;
 }

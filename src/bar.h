@@ -36,7 +36,15 @@ struct bar {
 	enum bar_position pos;
 	// TODO: set these two in bar backend
 	uint32_t margin;
-	uint32_t border_width;
+
+    struct {
+        uint32_t l_size;
+        uint32_t r_size;
+        uint32_t t_size;
+        uint32_t b_size;
+
+        pixman_color_t border_color;
+    } bar_border;
 	
 	char *displays;
 

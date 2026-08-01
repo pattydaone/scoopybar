@@ -2,13 +2,11 @@
 #include <getopt.h>
 #include <string.h>
 #include <sys/un.h>
-#include <wayland-client.h>
 
 #include "../utils/config_parser.h"
 #include "../utils/log.h"
 
 #include "bar.h"
-#include "wayland_backend.h"
 #include "ipc.h"
 
 extern volatile sig_atomic_t g_sig;
@@ -18,17 +16,30 @@ void signal_handler(int sig) {
 }
 
 void print_usage() {
-	printf("Usage: scoopybar\n\n");
+	printf("scoopybar: usage\n\n");
 	printf("Options:\n");
 
 	printf("-c --config=<path>              Path to configuration file.\n"
 		   "-h --help                       Print this message.\n"
 		   "-m --message <key>=<value> ...  Send message to exist bar process.\n"
+           "-q --query <key>                Query information about the current bar process.\n"
 			);
 	printf("\n");
 }
 
-bool prep_and_send_msg(const char *msg) {
+bool prep_and_send_msg(int argc, char **argv) {
+    char msg[1024];
+    int msg_index = 0;
+    for (int i = 2; i < argc; ++i) {
+        char *cur = argv[i];
+        int cur_len = strlen(cur);
+        memcpy(msg + msg_index, cur, cur_len);
+        msg_index += cur_len;
+
+        msg[msg_index] = ' ';
+        ++msg_index;
+    }
+
     struct bar_ipc *ipc = malloc(sizeof(struct bar_ipc));
     ipc->socket = malloc(sizeof(struct sockaddr_un));
     if (ipc == NULL || ipc->socket == NULL) {
@@ -51,27 +62,18 @@ bool prep_and_send_msg(const char *msg) {
     return true;
 }
 
-bool loop(struct bar_ipc *bar_ipc) {
-    if (bar_receive_msg(bar_ipc)) {
-        printf("%s\n", bar_ipc->msg);
-        fflush(stdout);
-    }
-    if (strcmp(bar_ipc->msg, "END") == 0) return false;
-
-    return true;
-}
-
 int main(int argc, char **argv) {
-	char config_path[512] = "/home/patrick/Projects/scoopybar/configurations/config.ini";
+    char config_path[512] = "/home/patrick/Projects/scoopybar/configurations/config.ini";
 	static const struct option longoptions[] = {
 		{"message", required_argument, 0, 'm'},
+        {"query", required_argument, 0, 'q'},
 		{"config", required_argument, 0, 'c'},
 		{"help", no_argument, 0, 'h'},
 		{NULL, no_argument, 0, 0}
 	};
 	
 	int opt_char;
-	while ((opt_char = getopt_long(argc, argv, "m:c:h", longoptions, NULL)) != -1) {
+	while ((opt_char = getopt_long(argc, argv, "m:q:c:h", longoptions, NULL)) != -1) {
 		switch (opt_char) {
 			case 'h':
 				print_usage();
@@ -80,10 +82,12 @@ int main(int argc, char **argv) {
 				strncpy(config_path, optarg, 512);
 				break;
 			case 'm':
-                if (!prep_and_send_msg(optarg)) {
+                if (!prep_and_send_msg(argc, argv)) {
                     exit(EXIT_FAILURE);
                 }
 				exit(EXIT_SUCCESS);
+            case 'q':
+                exit(EXIT_SUCCESS);
 		}
 	}
 
