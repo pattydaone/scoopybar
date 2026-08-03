@@ -1,0 +1,16 @@
+BasedOnStyle: GNU
+IndentWidth: 4
+PointerAlignment: Right
+AlignAfterOpenBracket: true
+AllowShortEnumsOnASingleLine: false
+ColumnLimit: 120
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterEnum: false
+  AfterClass: false
+  SplitEmptyFunction: true
+  AfterFunction: true
+  AfterStruct: false
+
+SpaceBeforeParens: ControlStatements
+Cpp11BracedListStyle: true

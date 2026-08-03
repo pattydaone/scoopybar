@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 
-#include "bar.h"
 #include "../utils/config_parser.h"
+#include "bar.h"
 
 enum bar_attributes {
     BAR_BACKGROUND_COLOR,

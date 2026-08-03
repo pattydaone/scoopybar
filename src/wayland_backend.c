@@ -1,19 +1,19 @@
 #include "wayland_backend.h"
+#include "../utils/log.h"
 #include "bar.h"
 #include "ll.h"
-#include "../utils/log.h"
 #include "wlr-layer-shell-unstable-v1.h"
 
-#include <math.h>
-#include <stdio.h>
 #include <assert.h>
+#include <math.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
-#include <stdlib.h>
 
 #include <pixman.h>
 
@@ -27,19 +27,19 @@
 #include <unistd.h>
 
 struct surface_buf {
-	struct wl_buffer *wl_buf;
-	
-	void *map;
-	int shm_fd;
+    struct wl_buffer *wl_buf;
 
-	uint32_t width;
-	uint32_t height;
-	uint32_t size;
+    void *map;
+    int shm_fd;
 
-	pixman_image_t *pix;
+    uint32_t width;
+    uint32_t height;
+    uint32_t size;
 
-	bool busy; // Buffer is currently being rendered (=> rendering_buf)
-	bool ready; // Buffer is ready to be rendered
+    pixman_image_t *pix;
+
+    bool busy;  // Buffer is currently being rendered (=> rendering_buf)
+    bool ready; // Buffer is ready to be rendered
 };
 
 // Taken from wayland-book.com from here...
@@ -50,7 +50,7 @@ randname(char *buf)
     clock_gettime(CLOCK_REALTIME, &ts);
     long r = ts.tv_nsec;
     for (int i = 0; i < 6; ++i) {
-        buf[i] = 'A'+(r&15)+(r&16)*2;
+        buf[i] = 'A' + (r & 15) + (r & 16) * 2;
         r >>= 5;
     }
 }
@@ -91,465 +91,486 @@ allocate_shm_file(size_t size)
 // To here
 
 static void
-wl_buffer_release(void *data, struct wl_buffer *wl_buffer) {
-	struct surface_buf *surface_buf = data;
-	log_dbg(__FILE__, __LINE__, 4, "Buffer release.");
-	surface_buf->busy = false;
+wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
+{
+    struct surface_buf *surface_buf = data;
+    log_dbg(__FILE__, __LINE__, 4, "Buffer release.");
+    surface_buf->busy = false;
 }
 
 static const struct wl_buffer_listener wl_buffer_listener = {
     .release = &wl_buffer_release,
 };
 
-struct surface_buf *create_buffer(struct output *output) {
-	struct bar_backend *bar = output->backend;
-	int height = bar->height;
-	int width = bar->width;
-	/* BPP is bits per pixel, and stride requires bytes, so we divide by 8.
-	 * a8r8g8b8 is divisible by 8, so we need not account for loss of remainder
-	 */ 
-	int stride = width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8;
-	int size = 2 * height * stride;
+struct surface_buf *
+create_buffer(struct output *output)
+{
+    struct bar_backend *bar = output->backend;
+    int height = bar->height;
+    int width = bar->width;
+    /* BPP is bits per pixel, and stride requires bytes, so we divide by 8.
+     * a8r8g8b8 is divisible by 8, so we need not account for loss of remainder
+     */
+    int stride = width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8;
+    int size = 2 * height * stride;
 
-	int fd = allocate_shm_file(size);
-	if (fd == -1) {
-		log_err(__FILE__, __LINE__, "Failed to allocate shared memory file");
-		return NULL;
-	}
+    int fd = allocate_shm_file(size);
+    if (fd == -1) {
+        log_err(__FILE__, __LINE__, "Failed to allocate shared memory file");
+        return NULL;
+    }
 
-	uint32_t *mmapping = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    uint32_t *mmapping = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
-	if (mmapping == MAP_FAILED) {
-		log_err(__FILE__, __LINE__, "Failed to create memory map.");
-		close(fd);
-		return NULL;
-	}
+    if (mmapping == MAP_FAILED) {
+        log_err(__FILE__, __LINE__, "Failed to create memory map.");
+        close(fd);
+        return NULL;
+    }
 
-	struct wl_shm_pool *pool = wl_shm_create_pool(bar->wl_shm, fd, size);
-	if (pool == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to create shared memory pool.");
-		exit(EXIT_FAILURE);
-	}
+    struct wl_shm_pool *pool = wl_shm_create_pool(bar->wl_shm, fd, size);
+    if (pool == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to create shared memory pool.");
+        exit(EXIT_FAILURE);
+    }
 
-	struct wl_buffer *wl_buf = wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
-	if (wl_buf == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to create wl_buffer.");
-		exit(EXIT_FAILURE);
-	}
+    struct wl_buffer *wl_buf = wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
+    if (wl_buf == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to create wl_buffer.");
+        exit(EXIT_FAILURE);
+    }
 
-	wl_shm_pool_destroy(pool);
-	close(fd);
+    wl_shm_pool_destroy(pool);
+    close(fd);
 
-	struct surface_buf *buf = malloc(sizeof(struct surface_buf));
-	buf->height = height;
-	buf->width = width;
-	buf->size = size;
-	buf->map = mmapping;
-	buf->wl_buf = wl_buf;
-	buf->busy = false;
-	buf->ready = false;
-	buf->pix = pixman_image_create_bits(PIXMAN_a8r8g8b8, width, height, mmapping, stride);
-	if (buf->pix == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to create pixman image.");
-	}
+    struct surface_buf *buf = malloc(sizeof(struct surface_buf));
+    buf->height = height;
+    buf->width = width;
+    buf->size = size;
+    buf->map = mmapping;
+    buf->wl_buf = wl_buf;
+    buf->busy = false;
+    buf->ready = false;
+    buf->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, width, height, mmapping, stride);
+    if (buf->pix == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to create pixman image.");
+    }
 
-	wl_buffer_add_listener(buf->wl_buf, &wl_buffer_listener, buf);
-	log_dbg(__FILE__, __LINE__, 3, "Successfully created buffer and binded to wl_buffer.");
+    wl_buffer_add_listener(buf->wl_buf, &wl_buffer_listener, buf);
+    log_dbg(__FILE__, __LINE__, 3, "Successfully created buffer and binded to wl_buffer.");
 
-	return buf;
+    return buf;
 }
-
-bool commit(struct output *out);
 
 static const struct wl_callback_listener wl_callback_listener;
 
-static void wl_callback_done(void *data, struct wl_callback *wl_cb, uint32_t cb_data) {
-	log_dbg(__FILE__, __LINE__, 4, "Frame callback.");
-	struct output *output = data;
-	assert( output->pending_buf->busy == false );
-	
-	if (output->pending_buf->ready) {
-		log_dbg(__FILE__, __LINE__, 4, "Buffer ready.");
-		wl_callback_destroy(wl_cb);
+static void
+wl_callback_done(void *data, struct wl_callback *wl_cb, uint32_t cb_data)
+{
+    log_dbg(__FILE__, __LINE__, 4, "Frame callback.");
+    struct output *output = data;
+    assert(output->pending_buf->busy == false);
 
-		output->cb = wl_surface_frame(output->surface.wl_surface);
-		wl_callback_add_listener(output->cb, &wl_callback_listener, output);
+    if (output->pending_buf->ready) {
+        log_dbg(__FILE__, __LINE__, 4, "Buffer ready.");
+        wl_callback_destroy(wl_cb);
 
-		output->pending_buf->busy = true;
-		output->pending_buf->ready = false;
+        output->cb = wl_surface_frame(output->surface.wl_surface);
+        wl_callback_add_listener(output->cb, &wl_callback_listener, output);
 
-		struct surface_buf *tmp = output->rendering_buf;
-		output->rendering_buf = output->pending_buf;
-		output->pending_buf = tmp;
+        output->pending_buf->busy = true;
+        output->pending_buf->ready = false;
 
-		wl_surface_attach(output->surface.wl_surface, output->rendering_buf->wl_buf, 0, 0);
-		wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, INT32_MAX, INT32_MAX);
-		wl_surface_commit(output->surface.wl_surface);
-		wl_display_flush(output->backend->wl_display);
-	}
+        struct surface_buf *tmp = output->rendering_buf;
+        output->rendering_buf = output->pending_buf;
+        output->pending_buf = tmp;
+
+        wl_surface_attach(output->surface.wl_surface, output->rendering_buf->wl_buf, 0, 0);
+        wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, INT32_MAX, INT32_MAX);
+        wl_surface_commit(output->surface.wl_surface);
+        wl_display_flush(output->backend->wl_display);
+    }
 }
 
-static const struct wl_callback_listener wl_callback_listener = {
-	.done = &wl_callback_done
-};
+static const struct wl_callback_listener wl_callback_listener = {.done = &wl_callback_done};
 
-static bool resize(struct output *output) {
-	log_dbg(__FILE__, __LINE__, 3, "Resize.");
-	struct bar_backend *bar = output->backend;
-	enum bar_position bar_pos = bar->bar_frontend->pos;
-	
-	zwlr_layer_surface_v1_set_size(output->surface.layer_surface, 
-								   output->surface.width, 
-								   output->surface.height);
+static bool
+resize(struct output *output)
+{
+    log_dbg(__FILE__, __LINE__, 3, "Resize.");
+    struct bar_backend *bar = output->backend;
+    enum bar_position bar_pos = bar->bar_frontend->pos;
 
-	zwlr_layer_surface_v1_set_exclusive_zone(output->surface.layer_surface,	
-		bar_pos == BAR_TOP || bar_pos == BAR_BOTTOM ? output->surface.height : output->surface.width);
+    zwlr_layer_surface_v1_set_size(output->surface.layer_surface, output->surface.width, output->surface.height);
 
-	int margin = output->backend->bar_frontend->margin;
-	zwlr_layer_surface_v1_set_margin(output->surface.layer_surface, margin, margin, margin, margin);
+    zwlr_layer_surface_v1_set_exclusive_zone(output->surface.layer_surface, bar_pos == BAR_TOP || bar_pos == BAR_BOTTOM
+                                                                                ? output->surface.height
+                                                                                : output->surface.width);
 
-	return true;
+    int margin = output->backend->bar_frontend->margin;
+    zwlr_layer_surface_v1_set_margin(output->surface.layer_surface, margin, margin, margin, margin);
+
+    return true;
 }
-
 
 // START: wlr_surface_listener code
 
-static void zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t serial, uint32_t width, uint32_t height) {
-	log_dbg(__FILE__, __LINE__, 3, "Configure event.");
-	struct output *output = data;
-	zwlr_layer_surface_v1_ack_configure(surface, serial);
+static void
+zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t serial, uint32_t width,
+                       uint32_t height)
+{
+    log_dbg(__FILE__, __LINE__, 3, "Configure event.");
+    struct output *output = data;
+    zwlr_layer_surface_v1_ack_configure(surface, serial);
 
-	output->surface.height = height;
-	output->surface.width = width;
+    output->surface.height = height;
+    output->surface.width = width;
 
-	struct bar_backend *bar = output->backend;
-	bar->width = width;
-	bar->height = height;
-	resize(output);
+    struct bar_backend *bar = output->backend;
+    bar->width = width;
+    bar->height = height;
+    resize(output);
 
-	struct surface_buf *buffer = output->rendering_buf;
+    struct surface_buf *buffer = output->rendering_buf;
 
-	pixman_image_t *fill = pixman_image_create_solid_fill(output->backend->background_color);
+    pixman_image_t *fill = pixman_image_create_solid_fill(output->backend->background_color);
 
-	pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, buffer->pix, 0, 0, 0, 0, 0, 0, width, height);
+    pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, buffer->pix, 0, 0, 0, 0, 0, 0, width, height);
 
-	output->cb = wl_surface_frame(output->surface.wl_surface);
-	if (output->cb == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to create callback object for output %s.", output->name);
-		exit(EXIT_FAILURE);
-	}
-	wl_callback_add_listener(output->cb, &wl_callback_listener, output);
+    output->cb = wl_surface_frame(output->surface.wl_surface);
+    if (output->cb == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to create callback object for output %s.", output->name);
+        exit(EXIT_FAILURE);
+    }
+    wl_callback_add_listener(output->cb, &wl_callback_listener, output);
 
-	wl_surface_attach(output->surface.wl_surface, buffer->wl_buf, 0, 0);
-	wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, width, height);
-	wl_surface_commit(output->surface.wl_surface);
+    wl_surface_attach(output->surface.wl_surface, buffer->wl_buf, 0, 0);
+    wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, width, height);
+    wl_surface_commit(output->surface.wl_surface);
 
-	wl_display_flush(output->backend->wl_display);
-	pixman_image_unref(fill);
+    wl_display_flush(output->backend->wl_display);
+    pixman_image_unref(fill);
 }
 
-static void zwlr_surface_closed(void *data, struct zwlr_layer_surface_v1 *surface) {
-	// TODO
+static void
+zwlr_surface_closed(void *data, struct zwlr_layer_surface_v1 *surface)
+{
+    // TODO
 }
 
-static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener = {
-	.configure = &zwlr_surface_configure,
-	.closed    = &zwlr_surface_closed
-};
+static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener
+    = {.configure = &zwlr_surface_configure, .closed = &zwlr_surface_closed};
 
 // END: wlr_surface_listener code
 
+static void
+create_surface(struct output *output)
+{
+    struct bar_backend *bar = output->backend;
 
-static void create_surface(struct output *output) {
-	struct bar_backend *bar = output->backend;
+    output->surface.height = bar->height;
+    output->surface.width = bar->width;
 
-	output->surface.height = bar->height;
-	output->surface.width = bar->width;
-
-	if (bar->bar_frontend->displays != NULL && strstr(bar->bar_frontend->displays, output->name) != 0) {
-		log_err(__FILE__, __LINE__, "%s: Invalid output.", output->name);
-		exit(EXIT_FAILURE);
-	}
+    if (bar->bar_frontend->displays != NULL && strstr(bar->bar_frontend->displays, output->name) != 0) {
+        log_err(__FILE__, __LINE__, "%s: Invalid output.", output->name);
+        exit(EXIT_FAILURE);
+    }
 
     output->surface.wl_surface = wl_compositor_create_surface(bar->wl_compositor);
-	if (output->surface.wl_surface == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to create wl_surface for output %s", output->name);
-		exit(EXIT_FAILURE);
-	}
+    if (output->surface.wl_surface == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to create wl_surface for output %s", output->name);
+        exit(EXIT_FAILURE);
+    }
 
-	enum zwlr_layer_shell_v1_layer layer = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
+    enum zwlr_layer_shell_v1_layer layer = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
 
-	switch (output->backend->bar_frontend->layer) {
-		case (BAR_LAYER_BACKGROUND):
-			layer = ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND;
-			break;
-		case (BAR_LAYER_BOTTOM):
-			layer = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
-			break;
-		case (BAR_LAYER_OVERLAY):
-			layer = ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY;
-			break;
-		case (BAR_LAYER_TOP):
-			layer = ZWLR_LAYER_SHELL_V1_LAYER_TOP;
-			break;
-	}
-	
-	output->surface.layer_surface = zwlr_layer_shell_v1_get_layer_surface(
-			bar->zwlr_layer_shell, output->surface.wl_surface, output->output, 
-			layer, "panel");
+    switch (output->backend->bar_frontend->layer) {
+    case (BAR_LAYER_BACKGROUND):
+        layer = ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND;
+        break;
+    case (BAR_LAYER_BOTTOM):
+        layer = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
+        break;
+    case (BAR_LAYER_OVERLAY):
+        layer = ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY;
+        break;
+    case (BAR_LAYER_TOP):
+        layer = ZWLR_LAYER_SHELL_V1_LAYER_TOP;
+        break;
+    }
 
-	if (output->surface.layer_surface == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to create layer_surface for output %s", output->name);
-		exit(EXIT_FAILURE);
-	}
+    output->surface.layer_surface = zwlr_layer_shell_v1_get_layer_surface(
+        bar->zwlr_layer_shell, output->surface.wl_surface, output->output, layer, "panel");
 
-	zwlr_layer_surface_v1_add_listener(output->surface.layer_surface, &zwlr_surface_listener, output);
+    if (output->surface.layer_surface == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to create layer_surface for output %s", output->name);
+        exit(EXIT_FAILURE);
+    }
 
-	enum zwlr_layer_surface_v1_anchor location = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+    zwlr_layer_surface_v1_add_listener(output->surface.layer_surface, &zwlr_surface_listener, output);
 
-	enum bar_position bar_pos = output->backend->bar_frontend->pos;
-	switch (bar_pos) {
-		case (BAR_TOP):
-			location = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
-			break;
-		case (BAR_BOTTOM):
-			location = ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
-			break;
-		case (BAR_LEFT):
-			location = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
-			break;
-		case (BAR_RIGHT):
-			location = ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
-			break;
-	}
-	
-	zwlr_layer_surface_v1_set_anchor(output->surface.layer_surface, location);
+    enum zwlr_layer_surface_v1_anchor location
+        = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
 
-	log_dbg(__FILE__, __LINE__, 3, "Surface created for output %s", output->name);
+    enum bar_position bar_pos = output->backend->bar_frontend->pos;
+    switch (bar_pos) {
+    case (BAR_TOP):
+        location
+            = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+        break;
+    case (BAR_BOTTOM):
+        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+        break;
+    case (BAR_LEFT):
+        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+        break;
+    case (BAR_RIGHT):
+        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+        break;
+    }
+
+    zwlr_layer_surface_v1_set_anchor(output->surface.layer_surface, location);
+
+    log_dbg(__FILE__, __LINE__, 3, "Surface created for output %s", output->name);
 }
 
 // START: wl_output_listener code
 
-static void wl_output_geometry(void *data, struct wl_output *output, int x, int y, int physical_width,
-							   int physical_height, int subpixel, const char* make, const char* model, int transform) {
-	struct output *out = data;
-	out->transform = transform;
+static void
+wl_output_geometry(void *data, struct wl_output *output, int x, int y, int physical_width, int physical_height,
+                   int subpixel, const char *make, const char *model, int transform)
+{
+    struct output *out = data;
+    out->transform = transform;
 }
 
-static void wl_output_mode(void *data, struct wl_output *output, uint flags, int width, int height, int refresh) {
-	struct output *out = data;
-	out->width = width;
-	out->height = height;
+static void
+wl_output_mode(void *data, struct wl_output *output, uint flags, int width, int height, int refresh)
+{
+    struct output *out = data;
+    out->width = width;
+    out->height = height;
 }
 
-static void wl_output_scale(void *data, struct wl_output *output, int scale) {
-	struct output *out = data;
-	out->scale = scale;
+static void
+wl_output_scale(void *data, struct wl_output *output, int scale)
+{
+    struct output *out = data;
+    out->scale = scale;
 }
 
-static void wl_output_name(void *data, struct wl_output *output, const char *name) {
-	struct output *out = data;
-	out->name = (name != NULL ? strdup(name) : NULL);
+static void
+wl_output_name(void *data, struct wl_output *output, const char *name)
+{
+    struct output *out = data;
+    out->name = (name != NULL ? strdup(name) : NULL);
 }
 
-static void wl_output_done(void *data, struct wl_output *output) {
-	struct output *out = data;
-	if (!out->scale) out->scale = 1;
+static void
+wl_output_done(void *data, struct wl_output *output)
+{
+    struct output *out = data;
+    if (!out->scale)
+        out->scale = 1;
 
-	create_surface(out);
-	resize(out);
+    create_surface(out);
+    resize(out);
 
-	wl_surface_commit(out->surface.wl_surface);
+    wl_surface_commit(out->surface.wl_surface);
 
-	if (!out->backend->height) {
-		log_dbg(__FILE__, __LINE__, 3, "Bar height not specified; defaulting to 40");
-		out->backend->height = 40;
-	}
+    if (!out->backend->height) {
+        log_dbg(__FILE__, __LINE__, 3, "Bar height not specified; defaulting to 40");
+        out->backend->height = 40;
+    }
 
-	if (!out->backend->width) {
-		log_dbg(__FILE__, __LINE__, 3, "Bar height not specified; defaulting to length of %s", out->name);
-		out->backend->width = out->width;
-	}
+    if (!out->backend->width) {
+        log_dbg(__FILE__, __LINE__, 3, "Bar height not specified; defaulting to length of %s", out->name);
+        out->backend->width = out->width;
+    }
 
-	struct surface_buf *buf_a = create_buffer(out);
-	if (buf_a == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to create buffer for output %s", out->name);
-		exit(EXIT_FAILURE);
-	}
-	out->rendering_buf = buf_a;
+    struct surface_buf *buf_a = create_buffer(out);
+    if (buf_a == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to create buffer for output %s", out->name);
+        exit(EXIT_FAILURE);
+    }
+    out->rendering_buf = buf_a;
 
-	struct surface_buf *buf_b = create_buffer(out);
-	if (buf_b == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to create buffer for output %s", out->name);
-		exit(EXIT_FAILURE);
-	}
-	out->pending_buf = buf_b;
+    struct surface_buf *buf_b = create_buffer(out);
+    if (buf_b == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to create buffer for output %s", out->name);
+        exit(EXIT_FAILURE);
+    }
+    out->pending_buf = buf_b;
 }
 
-static void wl_output_description(void *data, struct wl_output *output, const char* description) {
-	// No neeed
+static void
+wl_output_description(void *data, struct wl_output *output, const char *description)
+{
+    // No neeed
 }
 
-static const struct wl_output_listener wl_output_listener = {
-	.geometry    = &wl_output_geometry,
-	.mode        = &wl_output_mode,
-	.done        = &wl_output_done,
-	.scale       = &wl_output_scale,
-	.name        = &wl_output_name,
-	.description = &wl_output_description
-};
+static const struct wl_output_listener wl_output_listener = {.geometry = &wl_output_geometry,
+                                                             .mode = &wl_output_mode,
+                                                             .done = &wl_output_done,
+                                                             .scale = &wl_output_scale,
+                                                             .name = &wl_output_name,
+                                                             .description = &wl_output_description};
 
 // END: wl_output_listener code
 
+void
+check_version(const char *interface, uint32_t required, uint32_t actual)
+{
+    if (actual >= required)
+        return;
 
-void check_version(const char *interface, uint32_t required, uint32_t actual) {
-	if (actual >= required) return;
-	
-	log_err(__FILE__, __LINE__, "Version for interface %s is %d, where %d is required.", interface, actual, required);
-	exit(EXIT_FAILURE);
+    log_err(__FILE__, __LINE__, "Version for interface %s is %d, where %d is required.", interface, actual, required);
+    exit(EXIT_FAILURE);
 }
 
-static void registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version) {
-	struct bar_backend *bar = data;
-	if (strcmp(interface, wl_shm_interface.name) == 0) {
-		check_version(interface, 1, version);
+static void
+registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version)
+{
+    struct bar_backend *bar = data;
+    if (strcmp(interface, wl_shm_interface.name) == 0) {
+        check_version(interface, 1, version);
 
-		bar->wl_shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, 1);
-		log_dbg(__FILE__, __LINE__, 3, "Binded to wl_shm.");
-	}
-	else if (strcmp(interface, wl_compositor_interface.name) == 0) {
-		check_version(interface, 4, version);
+        bar->wl_shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, 1);
+        log_dbg(__FILE__, __LINE__, 3, "Binded to wl_shm.");
+    } else if (strcmp(interface, wl_compositor_interface.name) == 0) {
+        check_version(interface, 4, version);
 
-		bar->wl_compositor = wl_registry_bind(wl_registry, name, &wl_compositor_interface, 4);
-		log_dbg(__FILE__, __LINE__, 3, "Binded to wl_compositor.");
-	}
-	else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
-		check_version(interface, 3, version);
+        bar->wl_compositor = wl_registry_bind(wl_registry, name, &wl_compositor_interface, 4);
+        log_dbg(__FILE__, __LINE__, 3, "Binded to wl_compositor.");
+    } else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
+        check_version(interface, 3, version);
 
-		bar->zwlr_layer_shell = wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, 3);
-		log_dbg(__FILE__, __LINE__, 3, "Binded to zwlr_layer_shell.");
-	}
-	else if (strcmp(interface, wl_output_interface.name) == 0) {
-		check_version(interface, 4, version);
+        bar->zwlr_layer_shell = wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, 3);
+        log_dbg(__FILE__, __LINE__, 3, "Binded to zwlr_layer_shell.");
+    } else if (strcmp(interface, wl_output_interface.name) == 0) {
+        check_version(interface, 4, version);
 
-		struct output *out = malloc(sizeof(struct output));
-		out->output = wl_registry_bind(wl_registry, name, &wl_output_interface, 4);
-		log_dbg(__FILE__, __LINE__, 3, "Binded to wl_output.");
+        struct output *out = malloc(sizeof(struct output));
+        out->output = wl_registry_bind(wl_registry, name, &wl_output_interface, 4);
+        log_dbg(__FILE__, __LINE__, 3, "Binded to wl_output.");
 
-		out->backend = bar;
+        out->backend = bar;
 
-		wl_output_add_listener(out->output, &wl_output_listener, out);
-		log_dbg(__FILE__, __LINE__, 3, "Added wl_output listener.");
+        wl_output_add_listener(out->output, &wl_output_listener, out);
+        log_dbg(__FILE__, __LINE__, 3, "Added wl_output listener.");
 
-		if (bar->outputs == NULL) { // TODO: why do i have to do this? fuck you
-			struct output_node *node = malloc(sizeof(struct output_node));
-			node->data = out;
-			node->next = NULL;
-			bar->outputs = node;
-		}
-		else {
-			LL_push_back_output(bar->outputs, out);
-		}
-	}
+        if (bar->outputs == NULL) { // TODO: why do i have to do this? fuck you
+            struct output_node *node = malloc(sizeof(struct output_node));
+            node->data = out;
+            node->next = NULL;
+            bar->outputs = node;
+        } else {
+            LL_push_back_output(bar->outputs, out);
+        }
+    }
 }
 
-static void registry_global_remove(void *data, struct wl_registry *wl_registry, uint32_t name) {
-
+static void
+registry_global_remove(void *data, struct wl_registry *wl_registry, uint32_t name)
+{
 }
 
-static const struct wl_registry_listener registry_listener = {
-	.global = &registry_global,
-	.global_remove = &registry_global_remove
-};
+static const struct wl_registry_listener registry_listener
+    = {.global = &registry_global, .global_remove = &registry_global_remove};
 
-bool commit(struct output *out) {
-	log_dbg(__FILE__, __LINE__, 4, "Function \"commit\" called.");
+struct bar_backend *
+init_bar_backend(struct bar *bar)
+{
+    struct bar_backend *ret = malloc(sizeof(struct bar_backend));
 
-	return true;
-}
+    ret->bar_frontend = bar;
+    ret->width = bar->width;
+    ret->height = bar->height;
+    ret->background_color = &bar->background_color;
+    ret->background_color->alpha = 65535 * bar->opacity;
 
-struct bar_backend *init_bar_backend(struct bar *bar) {
-	struct bar_backend *ret = malloc(sizeof(struct bar_backend));
+    ret->wl_display = wl_display_connect(NULL);
+    if (ret->wl_display == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to connect to wl_display.");
+        goto err;
+    }
 
-	ret->bar_frontend = bar;
-	ret->width = bar->width;
-	ret->height = bar->height;
-	ret->background_color = &bar->background_color;
-	ret->background_color->alpha = 65535*bar->opacity;
+    ret->wl_registry = wl_display_get_registry(ret->wl_display);
+    if (ret->wl_registry == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to get wl_registry.");
+        goto err;
+    }
 
-	ret->wl_display = wl_display_connect(NULL);
-	if (ret->wl_display == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to connect to wl_display.");
-		goto err;
-	}
+    wl_registry_add_listener(ret->wl_registry, &registry_listener, ret);
+    wl_display_roundtrip(ret->wl_display);
 
-	ret->wl_registry = wl_display_get_registry(ret->wl_display);
-	if (ret->wl_registry == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to get wl_registry.");
-		goto err;
-	}
+    if (ret->wl_shm == NULL) {
+        log_err(__FILE__, __LINE__, "wl_shm not created.");
+        goto err;
+    }
 
-	wl_registry_add_listener(ret->wl_registry, &registry_listener, ret);
-	wl_display_roundtrip(ret->wl_display);
+    if (ret->wl_compositor == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to get wl_compositor.");
+        goto err;
+    }
 
-	if (ret->wl_shm == NULL) {
-		log_err(__FILE__, __LINE__, "wl_shm not created.");
-		goto err;
-	}
+    if (ret->zwlr_layer_shell == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to get layer_shell object.");
+        goto err;
+    }
 
-	if (ret->wl_compositor == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to get wl_compositor.");
-		goto err;
-	}
+    if (ret->outputs == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to connect to any outputs.");
+        goto err;
+    }
 
-	if (ret->zwlr_layer_shell == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to get layer_shell object.");
-		goto err;
-	}
+    wl_display_roundtrip(ret->wl_display);
 
-	if (ret->outputs == NULL) {
-		log_err(__FILE__, __LINE__, "Failed to connect to any outputs.");
-		goto err;
-	}
+    struct output_node *cur = ret->outputs;
+    while (cur != NULL) {
+        cur = cur->next;
+    }
 
-	wl_display_roundtrip(ret->wl_display);
+    wl_display_roundtrip(ret->wl_display);
 
-	struct output_node *cur = ret->outputs;
-	while (cur != NULL) {
-
-		/*
-		uint32_t width = output->surface.width;
-		uint32_t height = output->surface.height;
-
-		struct surface_buf *buffer = output->rendering_buf;
-
-		pixman_image_t *fill = pixman_image_create_solid_fill(output->backend->background_color);
-
-		pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, buffer->pix, 0, 0, 0, 0, 0, 0, width, height);
-
-		output->cb = wl_surface_frame(output->surface.wl_surface);
-		if (output->cb == NULL) {
-			log_err(__FILE__, __LINE__, "Failed to create callback object for output %s.", output->name);
-			exit(EXIT_FAILURE);
-		}
-		wl_callback_add_listener(output->cb, &wl_callback_listener, output);
-
-		wl_surface_attach(output->surface.wl_surface, buffer->wl_buf, 0, 0);
-		wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, width, height);
-		wl_surface_commit(output->surface.wl_surface);
-
-		wl_display_flush(output->backend->wl_display);
-		pixman_image_unref(fill);*/
-
-		cur = cur->next;
-	}
-
-	wl_display_roundtrip(ret->wl_display);
-    //while (wl_display_dispatch(ret->wl_display)) {
-    //    /* This space deliberately left blank */
-    //}
-
-	return ret;
+    return ret;
 err:
-	return NULL;
+    return NULL;
+}
+
+bool
+bar_commit(struct bar *bar)
+{
+    struct bar_backend *backend = bar->backend;
+    struct output_node *cur = backend->outputs;
+    while (cur != NULL) {
+        struct output *output = cur->data;
+        struct surface_buf *buf = output->pending_buf;
+        assert(buf->busy == false);
+        assert(buf->pix != NULL);
+
+        pixman_image_composite(PIXMAN_OP_SRC, bar->pix, NULL, buf->pix, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
+
+        wl_surface_attach(output->surface.wl_surface, buf->wl_buf, 0, 0);
+        wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, INT32_MAX, INT32_MAX);
+
+        struct wl_callback *cb = wl_surface_frame(output->surface.wl_surface);
+        wl_callback_add_listener(cb, &wl_callback_listener, output);
+
+        wl_surface_commit(output->surface.wl_surface);
+        wl_display_flush(backend->wl_display);
+
+        struct surface_buf *tmp = output->rendering_buf;
+        output->rendering_buf = buf;
+        output->pending_buf = tmp;
+
+        buf->busy = true;
+
+        cur = cur->next;
+    }
+
+    return true;
 }

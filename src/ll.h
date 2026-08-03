@@ -6,12 +6,12 @@
 #include "wayland_backend.h"
 
 enum type {
-	OUTPUT,
+    OUTPUT,
 };
 
 struct output_node {
-	struct output *data;
-	struct output_node *next;
+    struct output *data;
+    struct output_node *next;
 };
 
 void LL_push_back_output(struct output_node *head, struct output *data);
