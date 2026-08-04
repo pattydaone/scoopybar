@@ -31,8 +31,11 @@ init_bar(struct ConfParser *p)
 
     IPC_socket_init(bar_ipc, SERVER);
     ret->ipc = bar_ipc;
-    /* NOTE: my calculation of stride here is most certainly incorrect; if the bar needs to resize, this stride 
-     * will be invalidated and perhaps not updated. */
+    /* TODO: if the bar resizes, the size of this object will have to change,
+     * how should I deal with this? 
+     * NOTE: this object is created *after* the configuration event is sent 
+     * and therefore the only problematic resize would be by the user at runtime
+     */
     ret->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, ret->width, ret->height, NULL, ret->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
 
     return ret;
@@ -128,11 +131,9 @@ process_msg(struct bar *bar)
 void
 bar_loop(struct bar *bar)
 {
-    bar_commit(bar);
     while (check_sigint()) {
         if (bar_receive_msg(bar->ipc)) {
             process_msg(bar);
-            fflush(stdout);
         }
 
         usleep(8000);

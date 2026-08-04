@@ -94,7 +94,7 @@ static void
 wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
     struct surface_buf *surface_buf = data;
-    log_dbg(__FILE__, __LINE__, 4, "Buffer release.");
+    log_dbg(__FILE__, __LINE__, 3, "Buffer release.");
     surface_buf->busy = false;
 }
 
@@ -229,13 +229,15 @@ zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32
     struct bar_backend *bar = output->backend;
     bar->width = width;
     bar->height = height;
+    bar->bar_frontend->width = width;
+    bar->bar_frontend->height = height;
     resize(output);
 
     struct surface_buf *buffer = output->rendering_buf;
 
     pixman_image_t *fill = pixman_image_create_solid_fill(output->backend->background_color);
-
     pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, buffer->pix, 0, 0, 0, 0, 0, 0, width, height);
+    pixman_image_unref(fill);
 
     output->cb = wl_surface_frame(output->surface.wl_surface);
     if (output->cb == NULL) {
@@ -249,7 +251,6 @@ zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32
     wl_surface_commit(output->surface.wl_surface);
 
     wl_display_flush(output->backend->wl_display);
-    pixman_image_unref(fill);
 }
 
 static void
@@ -384,11 +385,13 @@ wl_output_done(void *data, struct wl_output *output)
     if (!out->backend->height) {
         log_dbg(__FILE__, __LINE__, 3, "Bar height not specified; defaulting to 40");
         out->backend->height = 40;
+        out->backend->bar_frontend->height = out->height;
     }
 
     if (!out->backend->width) {
         log_dbg(__FILE__, __LINE__, 3, "Bar height not specified; defaulting to length of %s", out->name);
         out->backend->width = out->width;
+        out->backend->bar_frontend->width = out->width;
     }
 
     struct surface_buf *buf_a = create_buffer(out);
@@ -555,22 +558,19 @@ bar_commit(struct bar *bar)
         pixman_image_composite(PIXMAN_OP_SRC, bar->pix, NULL, buf->pix, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
 
         wl_surface_attach(output->surface.wl_surface, buf->wl_buf, 0, 0);
-        wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, INT32_MAX, INT32_MAX);
-
-        struct wl_callback *cb = wl_surface_frame(output->surface.wl_surface);
-        wl_callback_add_listener(cb, &wl_callback_listener, output);
-
+        wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, bar->width, bar->height);
         wl_surface_commit(output->surface.wl_surface);
         wl_display_flush(backend->wl_display);
+
+        buf->busy = true;
 
         struct surface_buf *tmp = output->rendering_buf;
         output->rendering_buf = buf;
         output->pending_buf = tmp;
 
-        buf->busy = true;
-
         cur = cur->next;
     }
+    wl_display_roundtrip(backend->wl_display);
 
     return true;
 }
