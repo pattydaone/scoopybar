@@ -1,5 +1,6 @@
 #include "ipc.h"
 #include "../utils/log.h"
+#include "config.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -135,6 +136,21 @@ bar_receive_msg(struct bar_ipc *server)
 }
 
 bool
+bar_send_msg(struct bar_ipc *server)
+{
+    size_t b_written = write(server->socket_fd, server->msg, server->msg_bytes);
+    if (b_written == -1) {
+        log_err(__FILE__, __LINE__, "Failed to write to socket.");
+        return false;
+    }
+    if (b_written != server->msg_bytes) {
+        log_info(__FILE__, __LINE__, "Only %zu/%zu bytes sent to socket.", b_written, server->msg_bytes);
+        return true;
+    }
+    return true;
+}
+
+bool
 client_send_msg(struct bar_ipc *client)
 {
     size_t b_written = write(client->socket_fd, client->msg, client->msg_bytes);
@@ -146,5 +162,99 @@ client_send_msg(struct bar_ipc *client)
         log_info(__FILE__, __LINE__, "Only %zu/%zu bytes sent to socket.", b_written, client->msg_bytes);
         return true;
     }
+    return true;
+}
+
+bool
+client_receive_msg(struct bar_ipc *client)
+{
+    int accept_fd = accept(client->socket_fd, NULL, NULL);
+    if (accept_fd == -1) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) { /* No connection present. */
+            errno = 0;
+            return false;
+        }
+        log_err(__FILE__, __LINE__, "Failed to accept.");
+        return false;
+    }
+    size_t b_read = read(accept_fd, client->msg, sizeof(client->msg));
+    if (b_read == -1) {
+        log_err(__FILE__, __LINE__, "Error reading from socket.");
+        close(accept_fd);
+        return false;
+    }
+    if (b_read == 0) {
+        close(accept_fd);
+        return false; // Nothing sent.
+    }
+    client->msg_bytes = b_read;
+    client->msg[b_read] = '\0';
+    close(accept_fd);
+    return true;
+}
+
+char *
+extract_kv(struct bar_ipc *ipc, char *key, char *value)
+{
+    char *msgs = ipc->msg;
+    int i = 0;
+    char cur;
+    while ((cur = msgs[i]) != '=') {
+        if (i > 511) {
+            snprintf(ipc->msg, 1024, "ERROR: Key too long.");
+            return NULL;
+        }
+        if (cur == ' ' || cur == '\0') {
+            snprintf(ipc->msg, 1024, "ERROR: Key without a value.");
+            return NULL;
+        }
+        key[i] = cur;
+        ++i;
+    }
+    key[i] = '\0';
+    msgs += i + 1;
+
+    int j = 0;
+    while ((cur = msgs[j]) != ' ' && cur != '\0') {
+        if (j > 511) {
+            snprintf(ipc->msg, 1024, "ERROR: Value too long.");
+            return NULL;
+        }
+        value[j] = cur;
+        ++j;
+    }
+    value[j] = '\0';
+    msgs += j + 1;
+
+    return msgs;
+}
+
+bool
+find_by_key(struct bar *bar, char *key, char *value)
+{
+    if (strcmp(key, "bar.background") == 0) {
+        bar_set_attribute(bar, value, BAR_BACKGROUND_COLOR);
+        return true;
+    }
+    return true;
+}
+
+bool
+bar_process_msg(struct bar *bar)
+{
+    char *msgs = bar->ipc->msg;
+    char key[512];
+    char value[512];
+
+    while ((msgs = extract_kv(bar->ipc, key, value)) != NULL && msgs[0] != '\0') {
+        find_by_key(bar, key, value);
+    }
+    if (msgs == NULL)
+        return false;
+
+    find_by_key(bar, key, value);
+
+    bar->ipc->msg_bytes = snprintf(bar->ipc->msg, 1024, "SUCCESS");
+
     return true;
 }

@@ -66,74 +66,16 @@ check_sigint()
     return true;
 }
 
-char *
-extract_kv(char *msgs, char *key, char *value)
-{
-    int i = 0;
-    char cur;
-    while ((cur = msgs[i]) != '=') {
-        if (i > 511) {
-            log_err(__FILE__, __LINE__, "Key too long.");
-            return NULL;
-        }
-        if (cur == ' ' || cur == '\0') {
-            log_err(__FILE__, __LINE__, "Key without a value.");
-            return NULL;
-        }
-        key[i] = cur;
-        ++i;
-    }
-    key[i] = '\0';
-    msgs += i + 1;
-
-    int j = 0;
-    while ((cur = msgs[j]) != ' ' && cur != '\0') {
-        if (j > 511) {
-            log_err(__FILE__, __LINE__, "Value too long.");
-            return NULL;
-        }
-        value[j] = cur;
-        ++j;
-    }
-    value[j] = '\0';
-    msgs += j + 1;
-
-    return msgs;
-}
-
-bool
-find_by_key(struct bar *bar, char *key, char *value)
-{
-    if (strcmp(key, "bar.background") == 0) {
-        bar_set_attribute(bar, value, BAR_BACKGROUND_COLOR);
-        return true;
-    }
-    return true;
-}
-
-bool
-process_msg(struct bar *bar)
-{
-    char *msgs = bar->ipc->msg;
-    char key[512];
-    char value[512];
-
-    while ((msgs = extract_kv(msgs, key, value)) != NULL && msgs[0] != '\0') {
-        find_by_key(bar, key, value);
-    }
-    if (msgs == NULL)
-        return false;
-
-    find_by_key(bar, key, value);
-    return true;
-}
-
 void
 bar_loop(struct bar *bar)
 {
+    bar_refresh_bg_color(bar);
+    bar_commit(bar);
+
     while (check_sigint()) {
         if (bar_receive_msg(bar->ipc)) {
-            process_msg(bar);
+            bar_process_msg(bar);
+            bar_send_msg(bar->ipc);
         }
 
         usleep(8000);
@@ -144,7 +86,21 @@ bool
 bar_refresh_bg_color(struct bar *bar)
 {
     pixman_image_t *fill = pixman_image_create_solid_fill(&bar->background_color);
+    if (fill == NULL)
+        return false;
+
     pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, bar->pix, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
-    pixman_image_unref(fill);
+    if (!pixman_image_unref(fill))
+        return false;
+
+    return true;
+}
+
+bool 
+bar_refresh_opacity(struct bar *bar)
+{
+    bar->background_color.alpha = bar->opacity;
+    if (!bar_refresh_bg_color(bar))
+        return false;
     return true;
 }

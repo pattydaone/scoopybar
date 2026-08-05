@@ -31,7 +31,7 @@ struct bar {
     pixman_image_t *pix;
 
     pixman_color_t background_color;
-    float opacity;
+    uint32_t opacity;
 
     uint32_t height;
     uint32_t width;
@@ -60,5 +60,7 @@ void bar_destroy(struct bar *bar);
 void bar_loop(struct bar *bar);
 
 bool bar_refresh_bg_color(struct bar *bar);
+
+bool bar_refresh_opacity(struct bar *bar);
 
 #endif

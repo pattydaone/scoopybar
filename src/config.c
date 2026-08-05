@@ -93,7 +93,7 @@ set_opacity(struct bar *bar, char *value, bool isconf, int cur_line)
         errno = 0;
     }
     if (val > 0 && val <= 1.0) {
-        bar->opacity = val;
+        bar->opacity = val * 65535;
         return true;
     } else {
         if (isconf)
@@ -325,14 +325,22 @@ set_opts(struct bar *bar, struct ConfParser *p)
 void
 bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr)
 {
+    /* TODO: how do i communicate to the client that an input 
+     * they've given throws an error at one of the "set" 
+     * functions?
+     */
     switch (attr) {
     case BAR_BACKGROUND_COLOR:
-        set_bg_color(bar, value, false, 0);
+        if (!set_bg_color(bar, value, false, 0))
+            return;
         bar_refresh_bg_color(bar);
         bar_commit(bar);
         break;
     case BAR_OPACITY:
-        set_opacity(bar, value, false, 0);
+        if (!set_opacity(bar, value, false, 0))
+            return;
+        bar_refresh_opacity(bar);
+        bar_commit(bar);
         break;
     case BAR_HEIGHT:
         set_height(bar, value, false, 0);

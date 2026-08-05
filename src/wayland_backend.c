@@ -221,36 +221,21 @@ zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32
 {
     log_dbg(__FILE__, __LINE__, 3, "Configure event.");
     struct output *output = data;
+    struct bar_backend *bar = output->backend;
+
     zwlr_layer_surface_v1_ack_configure(surface, serial);
 
+    /* TODO: this might be excessive 
+     * perhaps there's a better way 
+     * to store this data ? */
     output->surface.height = height;
     output->surface.width = width;
-
-    struct bar_backend *bar = output->backend;
     bar->width = width;
     bar->height = height;
     bar->bar_frontend->width = width;
     bar->bar_frontend->height = height;
+
     resize(output);
-
-    struct surface_buf *buffer = output->rendering_buf;
-
-    pixman_image_t *fill = pixman_image_create_solid_fill(output->backend->background_color);
-    pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, buffer->pix, 0, 0, 0, 0, 0, 0, width, height);
-    pixman_image_unref(fill);
-
-    output->cb = wl_surface_frame(output->surface.wl_surface);
-    if (output->cb == NULL) {
-        log_err(__FILE__, __LINE__, "Failed to create callback object for output %s.", output->name);
-        exit(EXIT_FAILURE);
-    }
-    wl_callback_add_listener(output->cb, &wl_callback_listener, output);
-
-    wl_surface_attach(output->surface.wl_surface, buffer->wl_buf, 0, 0);
-    wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, width, height);
-    wl_surface_commit(output->surface.wl_surface);
-
-    wl_display_flush(output->backend->wl_display);
 }
 
 static void

@@ -1,6 +1,7 @@
 #ifndef IPC_H
 #define IPC_H
 
+#include "bar.h"
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -25,6 +26,13 @@ void IPC_socket_destroy(struct bar_ipc *bar_ipc, enum sock_type type);
 
 bool bar_receive_msg(struct bar_ipc *server);
 
+bool bar_send_msg(struct bar_ipc *server);
+
 bool client_send_msg(struct bar_ipc *client);
+
+bool client_receive_msg(struct bar_ipc *client);
+
+bool bar_process_msg(struct bar *bar);
+
 
 #endif

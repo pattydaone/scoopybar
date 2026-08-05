@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/un.h>
+#include <unistd.h>
 
 #include "../utils/config_parser.h"
 #include "../utils/log.h"
@@ -32,7 +33,7 @@ print_usage()
 }
 
 bool
-prep_and_send_msg(int argc, char **argv)
+prep_and_send_msg(struct bar_ipc *ipc, int argc, char **argv)
 {
     char msg[1024];
     int msg_index = 0;
@@ -47,6 +48,20 @@ prep_and_send_msg(int argc, char **argv)
     }
     msg[msg_index - 1] = '\0';
 
+    ipc->msg_bytes = snprintf(ipc->msg, 1023, "%s", msg);
+
+    if (!client_send_msg(ipc)) {
+        log_err(__FILE__, __LINE__, "Failed to send message.");
+        IPC_socket_destroy(ipc, CLIENT);
+        return false;
+    }
+
+    return true;
+}
+
+bool
+run_client(int argc, char **argv)
+{
     struct bar_ipc *ipc = malloc(sizeof(struct bar_ipc));
     ipc->socket = malloc(sizeof(struct sockaddr_un));
     if (ipc == NULL || ipc->socket == NULL) {
@@ -58,16 +73,27 @@ prep_and_send_msg(int argc, char **argv)
     if (!IPC_socket_init(ipc, CLIENT))
         return false;
 
-    ipc->msg_bytes = snprintf(ipc->msg, 1023, "%s", msg);
+    if (!prep_and_send_msg(ipc, argc, argv))
+        goto out;
 
-    if (!client_send_msg(ipc)) {
-        log_err(__FILE__, __LINE__, "Failed to send message.");
-        IPC_socket_destroy(ipc, CLIENT);
-        return false;
+    int s = 0;
+
+    while (s < 5 && !client_receive_msg(ipc)) {
+        usleep(1000000);
+        ++s;
+    }
+    if (s > 5) {
+        log_err(__FILE__, __LINE__, "Bar didn't return message.");
+        goto out;
     }
 
-    IPC_socket_destroy(ipc, CLIENT);
+    fprintf(stderr, "%s", ipc->msg);
+
     return true;
+
+out:
+    IPC_socket_destroy(ipc, CLIENT);
+    return false;
 }
 
 int
@@ -90,7 +116,7 @@ main(int argc, char **argv)
             strncpy(config_path, optarg, 512);
             break;
         case 'm':
-            if (!prep_and_send_msg(argc, argv)) {
+            if (!run_client(argc, argv)) {
                 exit(EXIT_FAILURE);
             }
             exit(EXIT_SUCCESS);

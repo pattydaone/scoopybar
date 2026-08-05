@@ -29,10 +29,12 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 
 - [ ] ACTUALLY LEARN HOW WAYLAND FUCKING WORKS YOU IDIOT
 
+
 - [ ] Scale stuff properly
 - [ ] Fix margin not working on all sides
 - [ ] Implement border
 - [ ] Move wayland backend to its own thread (?)
+- [ ] Sending errors to the client.
 - [ ] Add ability to change bar settings on the fly
 - [ ] Extra configuration testing
 - [ ] Add basic items
@@ -60,6 +62,7 @@ having a list of things ive completed helps keep me sane: no matter how bad thin
 - [X] clang format
 - [X] Add commandline arguments for sending messages to main bar
 - [X] License: probably MIT
+- [X] Figure out how I intend to render things
 # The design
 
 ## Configuration 
