@@ -36,6 +36,24 @@ log_err(const char *file, int line, const char *format, ...)
 }
 
 void
+log_client_err(struct bar_ipc *ipc, const char *file, int line, const char *format, ...)
+{
+    if (ipc->accept_fd == -1) {
+        log_err(__FILE__, __LINE__, "No active connection to send errors to.");
+        return;
+    }
+
+    dprintf(ipc->accept_fd, "ERROR: %s:%d\t", file, line);
+
+    va_list va;
+    va_start(va, format);
+    vdprintf(ipc->accept_fd, format, va);
+    va_end(va);
+
+    dprintf(ipc->accept_fd, "%c", '\0');
+}
+
+void
 log_dbg(const char *file, int line, int level, const char *format, ...)
 {
     if (level > DEBUG_LEVEL)
@@ -67,6 +85,24 @@ log_info(const char *file, int line, const char *format, ...)
     va_end(va);
 
     fputc('\n', log_file);
+}
+
+void
+log_client_info(struct bar_ipc *ipc, const char *file, int line, const char *format, ...)
+{
+    if (ipc->accept_fd == -1) {
+        log_err(__FILE__, __LINE__, "No active connection to send info to.");
+        return;
+    }
+
+    dprintf(ipc->accept_fd, "INFO: %s:%d\t", file, line);
+
+    va_list va;
+    va_start(va, format);
+    vdprintf(ipc->accept_fd, format, va);
+    va_end(va);
+
+    dprintf(ipc->accept_fd, "%c", '\0');
 }
 
 void

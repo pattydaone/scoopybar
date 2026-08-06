@@ -8,7 +8,7 @@
 
 #include <pixman.h>
 
-#include "../utils/config_parser.h"
+#include "utils/config_parser.h"
 
 enum bar_position {
     BAR_TOP,

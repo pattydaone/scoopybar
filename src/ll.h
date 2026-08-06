@@ -1,7 +1,7 @@
 #ifndef LL_H
 #define LL_H
 
-#include "../include/xdg-output-unstable-v1.h"
+#include "include/xdg-output-unstable-v1.h"
 
 #include "wayland_backend.h"
 

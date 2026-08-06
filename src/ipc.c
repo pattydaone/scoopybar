@@ -1,6 +1,6 @@
 #include "ipc.h"
-#include "../utils/log.h"
 #include "config.h"
+#include "utils/log.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -67,6 +67,7 @@ bool
 IPC_socket_init(struct bar_ipc *bar_ipc, enum sock_type type)
 {
     assert(bar_ipc != NULL);
+    bar_ipc->accept_fd = -1;
     bar_ipc->socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     bar_ipc->socket->sun_family = AF_UNIX;
     if (bar_ipc->socket_fd == -1) {
@@ -95,6 +96,8 @@ IPC_socket_destroy(struct bar_ipc *bar_ipc, enum sock_type type)
 
     if (close(bar_ipc->socket_fd) == -1)
         log_err(__FILE__, __LINE__, "Failed to close socket fd.");
+    if (bar_ipc->accept_fd != -1 && close(bar_ipc->accept_fd) == -1)
+        log_err(__FILE__, __LINE__, "Failed to close accept fd.");
     if (bar_ipc->socket != NULL) {
         if (type == SERVER)
             unlink(bar_ipc->socket->sun_path);
@@ -108,10 +111,10 @@ IPC_socket_destroy(struct bar_ipc *bar_ipc, enum sock_type type)
 }
 
 bool
-bar_receive_msg(struct bar_ipc *server)
+server_receive_msg(struct bar_ipc *server)
 {
-    int accept_fd = accept(server->socket_fd, NULL, NULL);
-    if (accept_fd == -1) {
+    server->accept_fd = accept(server->socket_fd, NULL, NULL);
+    if (server->accept_fd == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) { /* No connection present. */
             errno = 0;
             return false;
@@ -119,41 +122,43 @@ bar_receive_msg(struct bar_ipc *server)
         log_err(__FILE__, __LINE__, "Failed to accept.");
         return false;
     }
-    size_t b_read = read(accept_fd, server->msg, sizeof(server->msg));
+    size_t b_read = read(server->accept_fd, server->msg, 1023);
     if (b_read == -1) {
         log_err(__FILE__, __LINE__, "Error reading from socket.");
-        close(accept_fd);
         return false;
     }
-    if (b_read == 0) {
-        close(accept_fd);
+    if (b_read == 0) 
         return false; // Nothing sent.
-    }
     server->msg_bytes = b_read;
     server->msg[b_read] = '\0';
-    close(accept_fd);
     return true;
 }
 
 bool
-bar_send_msg(struct bar_ipc *server)
+client_receive_msg(struct bar_ipc *client)
 {
-    size_t b_written = write(server->socket_fd, server->msg, server->msg_bytes);
-    if (b_written == -1) {
-        log_err(__FILE__, __LINE__, "Failed to write to socket.");
+    size_t b_read = read(client->socket_fd, client->msg, 1023);
+    if (b_read == -1) {
+        log_err(__FILE__, __LINE__, "Error reading from socket.");
         return false;
     }
-    if (b_written != server->msg_bytes) {
-        log_info(__FILE__, __LINE__, "Only %zu/%zu bytes sent to socket.", b_written, server->msg_bytes);
-        return true;
-    }
+    if (b_read == 0)
+        return false;
+
+    client->msg_bytes = b_read;
+    client->msg[b_read] = '\0';
     return true;
 }
 
 bool
-client_send_msg(struct bar_ipc *client)
+IPC_send_msg(struct bar_ipc *client)
 {
-    size_t b_written = write(client->socket_fd, client->msg, client->msg_bytes);
+    size_t b_written;
+    if (client->accept_fd == -1)
+        b_written = write(client->socket_fd, client->msg, client->msg_bytes);
+    else 
+        b_written = write(client->accept_fd, client->msg, client->msg_bytes);
+
     if (b_written == -1) {
         log_err(__FILE__, __LINE__, "Failed to write to socket.");
         return false;
@@ -165,34 +170,6 @@ client_send_msg(struct bar_ipc *client)
     return true;
 }
 
-bool
-client_receive_msg(struct bar_ipc *client)
-{
-    int accept_fd = accept(client->socket_fd, NULL, NULL);
-    if (accept_fd == -1) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) { /* No connection present. */
-            errno = 0;
-            return false;
-        }
-        log_err(__FILE__, __LINE__, "Failed to accept.");
-        return false;
-    }
-    size_t b_read = read(accept_fd, client->msg, sizeof(client->msg));
-    if (b_read == -1) {
-        log_err(__FILE__, __LINE__, "Error reading from socket.");
-        close(accept_fd);
-        return false;
-    }
-    if (b_read == 0) {
-        close(accept_fd);
-        return false; // Nothing sent.
-    }
-    client->msg_bytes = b_read;
-    client->msg[b_read] = '\0';
-    close(accept_fd);
-    return true;
-}
-
 char *
 extract_kv(struct bar_ipc *ipc, char *key, char *value)
 {
@@ -201,11 +178,11 @@ extract_kv(struct bar_ipc *ipc, char *key, char *value)
     char cur;
     while ((cur = msgs[i]) != '=') {
         if (i > 511) {
-            snprintf(ipc->msg, 1024, "ERROR: Key too long.");
+            dprintf(ipc->socket_fd, "ERROR: Key too long.");
             return NULL;
         }
         if (cur == ' ' || cur == '\0') {
-            snprintf(ipc->msg, 1024, "ERROR: Key without a value.");
+            dprintf(ipc->socket_fd, "ERROR: Key without a value.");
             return NULL;
         }
         key[i] = cur;
@@ -217,7 +194,7 @@ extract_kv(struct bar_ipc *ipc, char *key, char *value)
     int j = 0;
     while ((cur = msgs[j]) != ' ' && cur != '\0') {
         if (j > 511) {
-            snprintf(ipc->msg, 1024, "ERROR: Value too long.");
+            dprintf(ipc->socket_fd, "ERROR: Value too long.");
             return NULL;
         }
         value[j] = cur;
@@ -240,7 +217,7 @@ find_by_key(struct bar *bar, char *key, char *value)
 }
 
 bool
-bar_process_msg(struct bar *bar)
+server_process_msg(struct bar *bar)
 {
     char *msgs = bar->ipc->msg;
     char key[512];
@@ -249,12 +226,14 @@ bar_process_msg(struct bar *bar)
     while ((msgs = extract_kv(bar->ipc, key, value)) != NULL && msgs[0] != '\0') {
         find_by_key(bar, key, value);
     }
-    if (msgs == NULL)
+    if (msgs == NULL) {
+        dprintf(bar->ipc->socket_fd, "%c", '\0');
         return false;
+    }
 
     find_by_key(bar, key, value);
 
-    bar->ipc->msg_bytes = snprintf(bar->ipc->msg, 1024, "SUCCESS");
+    dprintf(bar->ipc->socket_fd,"%s%c", "SUCCESS", '\0'); // do i even need to specify null
 
     return true;
 }

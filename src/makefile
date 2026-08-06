@@ -10,7 +10,7 @@ include_objs  :=            wlr-layer-shell-unstable-v1.o            xdg-output-
 files := $(src_files) $(util_files) $(include_files)
 objs  := $(src_objs)  $(util_objs)  $(include_objs)
 
-includes := -I ../include/ -I /usr/include/pixman-1/
+includes := -I ../include/ -I /usr/include/pixman-1/ -I ..
 libs := -lwayland-client -lm -lrt -lpixman-1 # TODO: replace with pkg-config invokations
 
 all: bin build clean 

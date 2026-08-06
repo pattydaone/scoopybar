@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "../utils/config_parser.h"
+#include "utils/config_parser.h"
 #include "bar.h"
 
 enum bar_attributes {

@@ -4,8 +4,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#include "../utils/config_parser.h"
-#include "../utils/log.h"
+#include "utils/config_parser.h"
+#include "utils/log.h"
 
 #include "bar.h"
 #include "ipc.h"
@@ -50,7 +50,7 @@ prep_and_send_msg(struct bar_ipc *ipc, int argc, char **argv)
 
     ipc->msg_bytes = snprintf(ipc->msg, 1023, "%s", msg);
 
-    if (!client_send_msg(ipc)) {
+    if (!IPC_send_msg(ipc)) {
         log_err(__FILE__, __LINE__, "Failed to send message.");
         IPC_socket_destroy(ipc, CLIENT);
         return false;

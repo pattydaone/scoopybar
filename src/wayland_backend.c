@@ -1,5 +1,5 @@
 #include "wayland_backend.h"
-#include "../utils/log.h"
+#include "utils/log.h"
 #include "bar.h"
 #include "ll.h"
 #include "wlr-layer-shell-unstable-v1.h"

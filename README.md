@@ -30,6 +30,7 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 - [ ] ACTUALLY LEARN HOW WAYLAND FUCKING WORKS YOU IDIOT
 
 
+
 - [ ] Scale stuff properly
 - [ ] Fix margin not working on all sides
 - [ ] Implement border

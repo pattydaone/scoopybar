@@ -1,5 +1,5 @@
 #include "bar.h"
-#include "../utils/log.h"
+#include "utils/log.h"
 #include "config.h"
 #include "ipc.h"
 
@@ -73,9 +73,9 @@ bar_loop(struct bar *bar)
     bar_commit(bar);
 
     while (check_sigint()) {
-        if (bar_receive_msg(bar->ipc)) {
-            bar_process_msg(bar);
-            bar_send_msg(bar->ipc);
+        if (server_receive_msg(bar->ipc)) {
+            server_process_msg(bar);
+            IPC_send_msg(bar->ipc);
         }
 
         usleep(8000);

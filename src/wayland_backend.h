@@ -3,8 +3,8 @@
 
 #include "bar.h"
 
-#include "../include/wlr-layer-shell-unstable-v1.h"
-#include "../include/xdg-output-unstable-v1.h"
+#include "include/wlr-layer-shell-unstable-v1.h"
+#include "include/xdg-output-unstable-v1.h"
 #include <pixman.h>
 
 #include <stdint.h>
