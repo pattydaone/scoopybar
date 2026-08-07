@@ -18,6 +18,6 @@ enum bar_attributes {
 
 bool set_opts(struct bar *bar, struct ConfParser *p);
 
-void bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr);
+bool bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr);
 
 #endif

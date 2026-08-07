@@ -78,8 +78,8 @@ run_client(int argc, char **argv)
 
     int s = 0;
 
-    while (s < 5 && !client_receive_msg(ipc)) {
-        usleep(1000000);
+    while (s < 20 && !client_receive_msg(ipc)) {
+        usleep(50000);
         ++s;
     }
     if (s > 5) {
@@ -87,9 +87,12 @@ run_client(int argc, char **argv)
         goto out;
     }
 
-    fprintf(stderr, "%s", ipc->msg);
+    if (strcmp(ipc->msg, "SUCCESS") == 0)
+        return true;
 
-    return true;
+    fprintf(stderr, "%s\n", ipc->msg);
+
+    return false;
 
 out:
     IPC_socket_destroy(ipc, CLIENT);

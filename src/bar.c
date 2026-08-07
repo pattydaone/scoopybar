@@ -74,8 +74,8 @@ bar_loop(struct bar *bar)
 
     while (check_sigint()) {
         if (server_receive_msg(bar->ipc)) {
-            server_process_msg(bar);
-            IPC_send_msg(bar->ipc);
+            if (server_process_msg(bar))
+                IPC_send_msg(bar->ipc);
         }
 
         usleep(8000);

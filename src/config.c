@@ -322,23 +322,19 @@ set_opts(struct bar *bar, struct ConfParser *p)
     return false;
 }
 
-void
+bool
 bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr)
 {
-    /* TODO: how do i communicate to the client that an input 
-     * they've given throws an error at one of the "set" 
-     * functions?
-     */
     switch (attr) {
     case BAR_BACKGROUND_COLOR:
         if (!set_bg_color(bar, value, bar->ipc, 0))
-            return;
+            return false;
         bar_refresh_bg_color(bar);
         bar_commit(bar);
         break;
     case BAR_OPACITY:
         if (!set_opacity(bar, value, bar->ipc, 0))
-            return;
+            return false;
         bar_refresh_opacity(bar);
         bar_commit(bar);
         break;
@@ -357,4 +353,6 @@ bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr)
     case BAR_BORDER:
         break;
     }
+
+    return true;
 }

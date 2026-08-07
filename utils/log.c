@@ -43,14 +43,15 @@ log_client_err(struct bar_ipc *ipc, const char *file, int line, const char *form
         return;
     }
 
-    dprintf(ipc->accept_fd, "ERROR: %s:%d\t", file, line);
+    int n = snprintf(ipc->msg, 1024, "ERROR: %s:%d\t", file, line);
 
     va_list va;
     va_start(va, format);
-    vdprintf(ipc->accept_fd, format, va);
+    n += vsnprintf(ipc->msg + n, 1024 - n, format, va);
     va_end(va);
 
-    dprintf(ipc->accept_fd, "%c", '\0');
+    ipc->msg_bytes = n + 1;
+    IPC_send_msg(ipc);
 }
 
 void
@@ -95,14 +96,15 @@ log_client_info(struct bar_ipc *ipc, const char *file, int line, const char *for
         return;
     }
 
-    dprintf(ipc->accept_fd, "INFO: %s:%d\t", file, line);
+    int n = snprintf(ipc->msg, 1024, "INFO: %s:%d\t", file, line);
 
     va_list va;
     va_start(va, format);
-    vdprintf(ipc->accept_fd, format, va);
+    n += vsnprintf(ipc->msg + n, 1024 - n, format, va);
     va_end(va);
 
-    dprintf(ipc->accept_fd, "%c", '\0');
+    ipc->msg_bytes = n + 1;
+    IPC_send_msg(ipc);
 }
 
 void
