@@ -40,13 +40,10 @@ struct bar {
     uint32_t margin;
 
     struct {
-        uint32_t l_size;
-        uint32_t r_size;
-        uint32_t t_size;
-        uint32_t b_size;
+        uint32_t width;
 
-        pixman_color_t border_color;
-    } bar_border;
+        pixman_color_t color;
+    } border;
 
     char *displays;
 
@@ -62,5 +59,11 @@ void bar_loop(struct bar *bar);
 bool bar_refresh_bg_color(struct bar *bar);
 
 bool bar_refresh_opacity(struct bar *bar);
+
+bool bar_refresh_height(struct bar *bar);
+
+bool bar_refresh_position(struct bar *bar);
+
+bool bar_refresh_border(struct bar *bar);
 
 #endif

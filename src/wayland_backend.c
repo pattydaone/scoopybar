@@ -559,3 +559,29 @@ bar_commit(struct bar *bar)
 
     return true;
 }
+
+bool
+resize_surfaces(struct bar *bar)
+{
+    struct bar_backend *backend = bar->backend;
+    backend->height = bar->height;
+    backend->width = bar->width;
+
+    struct output_node *cur = backend->outputs;
+
+    while (cur != NULL) {
+        struct output *out = cur->data;
+        if (bar->height > out->pending_buf->height || bar->width > out->pending_buf->width) {
+            /* TODO: resize buffer, commit, then resize 
+             * other buffer 
+             */
+        }
+        out->surface.height = bar->height;
+        out->surface.width = bar->width;
+
+        resize(cur->data);
+        cur = cur->next;
+    }
+
+    return true;
+}

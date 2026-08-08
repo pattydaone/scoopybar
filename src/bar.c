@@ -70,6 +70,8 @@ void
 bar_loop(struct bar *bar)
 {
     bar_refresh_bg_color(bar);
+    if (bar->border.width > 0)
+        bar_refresh_border(bar);
     bar_commit(bar);
 
     while (check_sigint()) {
@@ -80,7 +82,7 @@ bar_loop(struct bar *bar)
 
         usleep(8000);
     }
-}
+} 
 
 bool
 bar_refresh_bg_color(struct bar *bar)
@@ -102,5 +104,59 @@ bar_refresh_opacity(struct bar *bar)
     bar->background_color.alpha = bar->opacity;
     if (!bar_refresh_bg_color(bar))
         return false;
+    return true;
+}
+
+/* TODO: i dont know about this one man */
+bool
+bar_refresh_height(struct bar *bar)
+{
+    if (bar->pos == BAR_LEFT || bar->pos == BAR_RIGHT) {
+        log_client_info(bar->ipc, __FILE__, __LINE__, "Bar position is left or right; doing nothing.");
+        return true;
+    }
+
+    pixman_image_t *new = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, bar->width, bar->height, NULL,
+                                                            bar->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
+    if (new == NULL)
+        return false;
+
+    pixman_image_composite(PIXMAN_OP_SRC, bar->pix, NULL, new, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
+
+    if (!pixman_image_unref(bar->pix))
+        return false;
+
+    bar->pix = new;
+
+    resize_surfaces(bar);
+
+    return true;
+}
+
+/* TODO: should i even do this? how would i handle moving the 
+ * bar from top to left or right, or right to top or bottom?
+ */
+bool
+bar_refresh_position(struct bar *bar)
+{
+    return true;
+}
+
+bool
+bar_refresh_border(struct bar *bar)
+{
+    pixman_rectangle16_t rects[4] = {
+        /* Top */
+        { 0, 0, bar->width, bar->border.width },
+        /* Right */
+        { bar->width - bar->border.width, 0, bar->border.width, bar->height },
+        /* Bottom */
+        { 0, bar->height - bar->border.width, bar->width, bar->border.width },
+        /* Left */
+        { 0, 0, bar->border.width, bar->height }
+    };
+
+    pixman_image_fill_rectangles(PIXMAN_OP_OVER, bar->pix, &bar->border.color, 4, rects);
+    bar_commit(bar);
     return true;
 }

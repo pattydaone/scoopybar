@@ -99,7 +99,7 @@ IPC_socket_destroy(struct bar_ipc *bar_ipc, enum sock_type type)
     }
     free(bar_ipc);
 
-    if (type == SERVER) { // might not need anymore
+    if (type == SERVER) { /* might not need anymore */
         unsetenv("SCOOPYBARSOCK");
     }
 }
