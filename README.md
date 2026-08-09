@@ -35,6 +35,7 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 - [ ] Fix margin not working on all sides
 - [ ] Move wayland backend to its own thread (?)
 - [ ] Add ability to change bar settings on the fly
+- [ ] Add ability to query bar information
 - [ ] Extra configuration testing
 - [ ] Add basic items
 - [ ] Figure out text rendering

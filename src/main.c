@@ -26,7 +26,7 @@ print_usage()
 
     printf("-c --config=<path>              Path to configuration file.\n"
            "-h --help                       Print this message.\n"
-           "-m --message <key>=<value> ...  Send message to exist bar process.\n"
+           "-m --message <key>=<value> ...  Send message to existing bar process.\n"
            "-q --query <key>                Query information about the current "
            "bar process.\n");
     printf("\n");
@@ -125,6 +125,10 @@ main(int argc, char **argv)
             exit(EXIT_SUCCESS);
         case 'q':
             exit(EXIT_SUCCESS);
+        case ':':
+            exit(EXIT_FAILURE);
+        default:
+            exit(EXIT_FAILURE);
         }
     }
 

@@ -346,7 +346,7 @@ set_bar_opt(struct bar *bar, struct ConfParser *p)
         if (!set_width(bar, value, cur_line))
             return false;
     } else
-        bar->width = 0;
+        bar->width = 0; /* Will be set later at config event */
 
     /* Bar position */
     if ((find_code = PARSER_find(p, valid_bar_keys[2], value)) == SUCCESS) {

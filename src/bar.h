@@ -35,6 +35,8 @@ struct bar {
 
     uint32_t height;
     uint32_t width;
+    uint32_t height_with_border;
+    uint32_t width_with_border;
     enum bar_position pos;
     // TODO: set these two in bar backend
     uint32_t margin;

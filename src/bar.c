@@ -145,6 +145,8 @@ bar_refresh_position(struct bar *bar)
 bool
 bar_refresh_border(struct bar *bar)
 {
+    bar->width_with_border = bar->width - 2 * bar->border.width;
+    bar->height_with_border = bar->height - 2 * bar->border.width;
     pixman_rectangle16_t rects[4] = {
         /* Top */
         { 0, 0, bar->width, bar->border.width },
