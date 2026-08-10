@@ -80,6 +80,7 @@ bar_loop(struct bar *bar)
                 IPC_send_msg(bar->ipc);
         }
 
+        /* TODO: replace with nanosleep */
         usleep(8000);
     }
 } 
@@ -107,7 +108,6 @@ bar_refresh_opacity(struct bar *bar)
     return true;
 }
 
-/* TODO: i dont know about this one man */
 bool
 bar_refresh_height(struct bar *bar)
 {
@@ -130,15 +130,50 @@ bar_refresh_height(struct bar *bar)
 
     resize_surfaces(bar);
 
+    bar_refresh_bg_color(bar);
+    bar_refresh_border(bar);
+
     return true;
 }
 
-/* TODO: should i even do this? how would i handle moving the 
- * bar from top to left or right, or right to top or bottom?
- */
+bool
+bar_refresh_width(struct bar *bar)
+{
+    if (bar->pos == BAR_TOP || bar->pos == BAR_BOTTOM) {
+        log_client_info(bar->ipc, __FILE__, __LINE__, "Bar position is top or bottom; doing nothing.");
+        return true;
+    }
+
+    pixman_image_t *new = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, bar->width, bar->height, NULL,
+                                                            bar->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
+    if (new == NULL)
+        return false;
+
+    pixman_image_composite(PIXMAN_OP_SRC, bar->pix, NULL, new, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
+
+    if (!pixman_image_unref(bar->pix))
+        return false;
+
+    bar->pix = new;
+
+    resize_surfaces(bar);
+
+    bar_refresh_bg_color(bar);
+    bar_refresh_border(bar);
+
+    return true;
+}
+
 bool
 bar_refresh_position(struct bar *bar)
 {
+    /* TODO: I really don't like how this function consists of 
+     * deferring to another one immediately. I could just directly 
+     * call reset_position, but that presents a weird inconsistency 
+     * where all but one of my refreshers is in bar.h. What should 
+     * I do?
+     */
+    reset_position(bar);
     return true;
 }
 
@@ -147,16 +182,14 @@ bar_refresh_border(struct bar *bar)
 {
     bar->width_with_border = bar->width - 2 * bar->border.width;
     bar->height_with_border = bar->height - 2 * bar->border.width;
-    pixman_rectangle16_t rects[4] = {
-        /* Top */
-        { 0, 0, bar->width, bar->border.width },
-        /* Right */
-        { bar->width - bar->border.width, 0, bar->border.width, bar->height },
-        /* Bottom */
-        { 0, bar->height - bar->border.width, bar->width, bar->border.width },
-        /* Left */
-        { 0, 0, bar->border.width, bar->height }
-    };
+    pixman_rectangle16_t rects[4] = {/* Top */
+                                     {0, 0, bar->width, bar->border.width},
+                                     /* Right */
+                                     {bar->width - bar->border.width, 0, bar->border.width, bar->height},
+                                     /* Bottom */
+                                     {0, bar->height - bar->border.width, bar->width, bar->border.width},
+                                     /* Left */
+                                     {0, 0, bar->border.width, bar->height}};
 
     pixman_image_fill_rectangles(PIXMAN_OP_OVER, bar->pix, &bar->border.color, 4, rects);
     bar_commit(bar);

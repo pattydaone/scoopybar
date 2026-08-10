@@ -20,7 +20,6 @@ struct output {
     struct surface_buf *rendering_buf;
     struct surface_buf *pending_buf;
     struct bar_backend *backend;
-    struct wl_callback *cb;
 
     struct {
         struct wl_surface *wl_surface;
@@ -56,5 +55,7 @@ bool bar_commit(struct bar *bar);
 void init_item_backend();
 
 bool resize_surfaces(struct bar *bar);
+
+bool reset_position(struct bar *bar);
 
 #endif

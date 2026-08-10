@@ -13,7 +13,9 @@ enum bar_attributes {
     BAR_WIDTH,
     BAR_POSITION,
     BAR_MARGIN,
-    BAR_BORDER
+    BAR_BORDER_WIDTH,
+    BAR_BORDER_COLOR,
+    BAR_BORDER_OPACITY
 };
 
 bool set_opts(struct bar *bar, struct ConfParser *p);

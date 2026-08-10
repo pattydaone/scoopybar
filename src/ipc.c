@@ -43,6 +43,7 @@ server_setup(struct bar_ipc *bar_ipc)
     assert(sock != NULL);
 
     char *sock_path = "/tmp/scoopybar-socket";
+    unlink(sock_path); /* In case a previous instance exited abnormally */
     strncpy(sock->sun_path, sock_path, sizeof(sock->sun_path) - 1);
     if (setenv("SCOOPYBARSOCK", sock_path, 1) == -1) {
         log_err(__FILE__, __LINE__, "Failed to set socket.");
@@ -203,16 +204,46 @@ extract_kv(struct bar_ipc *ipc, char *key, char *value)
         ++j;
     }
     value[j] = '\0';
-    msgs += j + 1;
-
-    return msgs;
+    msgs += j;
+    if (msgs[0] == '\0')
+        return msgs;
+    else
+        return msgs + 1;
 }
 
 bool
 find_by_key(struct bar *bar, char *key, char *value)
 {
+    /* TODO: Break this down so that before the . and after
+     * are treated as separate entities. This won't be very 
+     * important until I get to items, I imagine.
+     */
     if (strcmp(key, "bar.background") == 0) {
         return bar_set_attribute(bar, value, BAR_BACKGROUND_COLOR);
+    }
+    else if (strcmp(key, "bar.opacity") == 0) {
+        return bar_set_attribute(bar, value, BAR_OPACITY);
+    }
+    else if (strcmp(key, "bar.height") == 0) {
+        return bar_set_attribute(bar, value, BAR_HEIGHT);
+    }
+    else if (strcmp(key, "bar.width") == 0) {
+        return bar_set_attribute(bar, value, BAR_WIDTH);
+    }
+    else if (strcmp(key, "bar.position") == 0) {
+        return bar_set_attribute(bar, value, BAR_POSITION);
+    }
+    else if (strcmp(key, "bar.margin") == 0) {
+        return bar_set_attribute(bar, value, BAR_MARGIN);
+    }
+    else if (strcmp(key, "bar.border_width") == 0) {
+        return bar_set_attribute(bar, value, BAR_BORDER_WIDTH);
+    }
+    else if (strcmp(key, "bar.border_color") == 0) {
+        return bar_set_attribute(bar, value, BAR_BORDER_COLOR);
+    }
+    else if (strcmp(key, "bar.border_opacity") == 0) {
+        return bar_set_attribute(bar, value, BAR_BORDER_OPACITY);
     }
     return true;
 }

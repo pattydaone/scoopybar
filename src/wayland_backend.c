@@ -5,7 +5,6 @@
 #include "wlr-layer-shell-unstable-v1.h"
 
 #include <assert.h>
-#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,10 +37,10 @@ struct surface_buf {
 
     pixman_image_t *pix;
 
-    bool busy;  // Buffer is currently being rendered (=> rendering_buf)
-    bool ready; // Buffer is ready to be rendered
+    bool busy;  /* Buffer is currently being rendered (=> rendering_buf) */
 };
 
+/* TODO: rewrite */
 // Taken from wayland-book.com from here...
 static void
 randname(char *buf)
@@ -94,7 +93,7 @@ static void
 wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
     struct surface_buf *surface_buf = data;
-    log_dbg(__FILE__, __LINE__, 3, "Buffer release.");
+    log_dbg(__FILE__, __LINE__, 4, "Buffer release.");
     surface_buf->busy = false;
 }
 
@@ -150,7 +149,6 @@ create_buffer(struct output *output)
     buf->map = mmapping;
     buf->wl_buf = wl_buf;
     buf->busy = false;
-    buf->ready = false;
     buf->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, width, height, mmapping, stride);
     if (buf->pix == NULL) {
         log_err(__FILE__, __LINE__, "Failed to create pixman image.");
@@ -162,37 +160,24 @@ create_buffer(struct output *output)
     return buf;
 }
 
-static const struct wl_callback_listener wl_callback_listener;
-
-static void
-wl_callback_done(void *data, struct wl_callback *wl_cb, uint32_t cb_data)
+bool
+destroy_buffer(struct surface_buf *buf)
 {
-    log_dbg(__FILE__, __LINE__, 4, "Frame callback.");
-    struct output *output = data;
-    assert(output->pending_buf->busy == false);
+    assert(!buf->busy);
 
-    if (output->pending_buf->ready) {
-        log_dbg(__FILE__, __LINE__, 4, "Buffer ready.");
-        wl_callback_destroy(wl_cb);
-
-        output->cb = wl_surface_frame(output->surface.wl_surface);
-        wl_callback_add_listener(output->cb, &wl_callback_listener, output);
-
-        output->pending_buf->busy = true;
-        output->pending_buf->ready = false;
-
-        struct surface_buf *tmp = output->rendering_buf;
-        output->rendering_buf = output->pending_buf;
-        output->pending_buf = tmp;
-
-        wl_surface_attach(output->surface.wl_surface, output->rendering_buf->wl_buf, 0, 0);
-        wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, INT32_MAX, INT32_MAX);
-        wl_surface_commit(output->surface.wl_surface);
-        wl_display_flush(output->backend->wl_display);
-    }
+    pixman_image_unref(buf->pix);
+    wl_buffer_destroy(buf->wl_buf);
+    munmap(buf->map, buf->size);
+    return true;
 }
 
-static const struct wl_callback_listener wl_callback_listener = {.done = &wl_callback_done};
+void
+swap_buffers(struct surface_buf **buf_a, struct surface_buf **buf_b)
+{
+    struct surface_buf *tmp = *buf_a;
+    *buf_a = *buf_b;
+    *buf_b = tmp;
+}
 
 static bool
 resize(struct output *output)
@@ -549,9 +534,7 @@ bar_commit(struct bar *bar)
 
         buf->busy = true;
 
-        struct surface_buf *tmp = output->rendering_buf;
-        output->rendering_buf = buf;
-        output->pending_buf = tmp;
+        swap_buffers(&output->rendering_buf, &output->pending_buf);
 
         cur = cur->next;
     }
@@ -572,14 +555,55 @@ resize_surfaces(struct bar *bar)
     while (cur != NULL) {
         struct output *out = cur->data;
         if (bar->height > out->pending_buf->height || bar->width > out->pending_buf->width) {
-            /* TODO: resize buffer, commit, then resize 
-             * other buffer 
-             */
+            destroy_buffer(out->pending_buf);
+            out->pending_buf = create_buffer(out);
+
+            bar_commit(bar);
+
+            destroy_buffer(out->pending_buf);
+            out->pending_buf = create_buffer(out);
         }
         out->surface.height = bar->height;
         out->surface.width = bar->width;
 
         resize(cur->data);
+        cur = cur->next;
+    }
+
+    bar_commit(bar);
+
+    return true;
+}
+
+bool
+reset_position(struct bar *bar)
+{
+    struct bar_backend *backend = bar->backend;
+    enum zwlr_layer_surface_v1_anchor location;
+
+    switch (bar->pos) {
+    case (BAR_TOP):
+        location
+            = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+        break;
+    case (BAR_BOTTOM):
+        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+        break;
+    case (BAR_LEFT):
+        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+        break;
+    case (BAR_RIGHT):
+        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+        break;
+    }
+
+    struct output_node *cur = backend->outputs;
+    while (cur != NULL) {
+        struct output *out = cur->data;
+        zwlr_layer_surface_v1_set_anchor(out->surface.layer_surface, location);
         cur = cur->next;
     }
 

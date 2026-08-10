@@ -64,6 +64,8 @@ bool bar_refresh_opacity(struct bar *bar);
 
 bool bar_refresh_height(struct bar *bar);
 
+bool bar_refresh_width(struct bar *bar);
+
 bool bar_refresh_position(struct bar *bar);
 
 bool bar_refresh_border(struct bar *bar);

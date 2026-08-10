@@ -429,6 +429,25 @@ set_opts(struct bar *bar, struct ConfParser *p)
 }
 
 bool
+check_pos(struct bar *bar, char *value)
+{
+    if (bar->pos == BAR_TOP || bar->pos == BAR_BOTTOM) {
+        if (strcmp(value, "left") == 0 || strcmp(value, "right") == 0) {
+            log_client_err(bar->ipc, __FILE__, __LINE__,
+                           "Attempted to move bar position from top or bottom to left or right.");
+            return false;
+        }
+    } else if (bar->pos == BAR_LEFT || bar->pos == BAR_RIGHT) {
+        if (strcmp(value, "bottom") == 0 || strcmp(value, "top") == 0) {
+            log_client_err(bar->ipc, __FILE__, __LINE__,
+                           "Attempted to move bar position from right or left to top or bottom.");
+            return false;
+        }
+    }
+    return true;
+}
+
+bool
 bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr)
 {
     switch (attr) {
@@ -445,18 +464,40 @@ bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr)
         bar_commit(bar);
         break;
     case BAR_HEIGHT:
-        set_height(bar, value, 0);
+        if (!set_height(bar, value, 0))
+            return false;
+        bar_refresh_height(bar);
+        bar_commit(bar);
         break;
     case BAR_WIDTH:
-        set_width(bar, value, 0);
+        if (!set_width(bar, value, 0))
+            return false;
+        bar_refresh_width(bar);
+        bar_commit(bar);
         break;
     case BAR_POSITION:
-        set_pos(bar, value, 0);
+        if (!check_pos(bar, value))
+            return false;
+        if (!set_pos(bar, value, 0))
+            return false;
+        bar_refresh_position(bar);
+        bar_commit(bar);
         break;
     case BAR_MARGIN:
-        set_margin(bar, value, 0);
+        if (!set_margin(bar, value, 0))
+            return false;
         break;
-    case BAR_BORDER:
+    case BAR_BORDER_WIDTH:
+        if (!set_border_width(bar, value, 0))
+            return false;
+        break;
+    case BAR_BORDER_COLOR:
+        if (!set_border_color(bar, value, 0))
+            return false;
+        break;
+    case BAR_BORDER_OPACITY:
+        if (!set_border_opacity(bar, value, 0))
+            return false;
         break;
     }
 
