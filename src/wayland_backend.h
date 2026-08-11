@@ -56,6 +56,4 @@ void init_item_backend();
 
 bool resize_surfaces(struct bar *bar);
 
-bool reset_position(struct bar *bar);
-
 #endif

@@ -68,6 +68,8 @@ bool bar_refresh_width(struct bar *bar);
 
 bool bar_refresh_position(struct bar *bar);
 
+bool bar_refresh_margin(struct bar *bar);
+
 bool bar_refresh_border(struct bar *bar);
 
 #endif

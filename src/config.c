@@ -455,25 +455,22 @@ bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr)
         if (!set_bg_color(bar, value, 0))
             return false;
         bar_refresh_bg_color(bar);
-        bar_commit(bar);
+        bar_refresh_border(bar);
         break;
     case BAR_OPACITY:
         if (!set_opacity(bar, value, 0))
             return false;
         bar_refresh_opacity(bar);
-        bar_commit(bar);
         break;
     case BAR_HEIGHT:
         if (!set_height(bar, value, 0))
             return false;
         bar_refresh_height(bar);
-        bar_commit(bar);
         break;
     case BAR_WIDTH:
         if (!set_width(bar, value, 0))
             return false;
         bar_refresh_width(bar);
-        bar_commit(bar);
         break;
     case BAR_POSITION:
         if (!check_pos(bar, value))
@@ -481,11 +478,11 @@ bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr)
         if (!set_pos(bar, value, 0))
             return false;
         bar_refresh_position(bar);
-        bar_commit(bar);
         break;
     case BAR_MARGIN:
         if (!set_margin(bar, value, 0))
             return false;
+        bar_refresh_margin(bar);
         break;
     case BAR_BORDER_WIDTH:
         if (!set_border_width(bar, value, 0))
@@ -500,6 +497,8 @@ bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr)
             return false;
         break;
     }
+
+    bar_commit(bar);
 
     return true;
 }

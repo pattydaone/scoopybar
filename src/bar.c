@@ -1,7 +1,8 @@
 #include "bar.h"
-#include "utils/log.h"
 #include "config.h"
 #include "ipc.h"
+#include "ll.h"
+#include "utils/log.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -105,6 +106,8 @@ bar_refresh_opacity(struct bar *bar)
     bar->background_color.alpha = bar->opacity;
     if (!bar_refresh_bg_color(bar))
         return false;
+    if (!bar_refresh_border(bar))
+        return false;
     return true;
 }
 
@@ -165,19 +168,6 @@ bar_refresh_width(struct bar *bar)
 }
 
 bool
-bar_refresh_position(struct bar *bar)
-{
-    /* TODO: I really don't like how this function consists of 
-     * deferring to another one immediately. I could just directly 
-     * call reset_position, but that presents a weird inconsistency 
-     * where all but one of my refreshers is in bar.h. What should 
-     * I do?
-     */
-    reset_position(bar);
-    return true;
-}
-
-bool
 bar_refresh_border(struct bar *bar)
 {
     bar->width_with_border = bar->width - 2 * bar->border.width;
@@ -192,6 +182,59 @@ bar_refresh_border(struct bar *bar)
                                      {0, 0, bar->border.width, bar->height}};
 
     pixman_image_fill_rectangles(PIXMAN_OP_OVER, bar->pix, &bar->border.color, 4, rects);
-    bar_commit(bar);
+
+    return true;
+}
+
+bool
+bar_refresh_position(struct bar *bar)
+{
+    struct bar_backend *backend = bar->backend;
+    enum zwlr_layer_surface_v1_anchor location;
+
+    switch (bar->pos) {
+    case (BAR_TOP):
+        location
+            = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+        break;
+    case (BAR_BOTTOM):
+        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+        break;
+    case (BAR_LEFT):
+        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+        break;
+    case (BAR_RIGHT):
+        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+        break;
+    }
+
+    struct output_node *cur = backend->outputs;
+    while (cur != NULL) {
+        struct output *out = cur->data;
+        zwlr_layer_surface_v1_set_anchor(out->surface.layer_surface, location);
+        cur = cur->next;
+    }
+
+    return true;
+}
+
+bool
+bar_refresh_margin(struct bar *bar)
+{
+    /* TODO: resizing is broken. */
+    int margin = bar->margin;
+    
+    struct output_node *cur = bar->backend->outputs;
+    while (cur != NULL) {
+        struct output *output = cur->data;
+        zwlr_layer_surface_v1_set_margin(output->surface.layer_surface, margin, margin, margin, margin);
+        cur = cur->next;
+    }
+
+    wl_display_roundtrip(bar->backend->wl_display);
+
     return true;
 }

@@ -93,7 +93,7 @@ static void
 wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
     struct surface_buf *surface_buf = data;
-    log_dbg(__FILE__, __LINE__, 4, "Buffer release.");
+    log_dbg(__FILE__, __LINE__, 3, "Buffer release.");
     surface_buf->busy = false;
 }
 
@@ -459,6 +459,10 @@ init_bar_backend(struct bar *bar)
 {
     struct bar_backend *ret = malloc(sizeof(struct bar_backend));
 
+    if (ret == NULL) {
+        return NULL;
+    }
+
     ret->bar_frontend = bar;
     ret->width = bar->width;
     ret->height = bar->height;
@@ -502,15 +506,11 @@ init_bar_backend(struct bar *bar)
 
     wl_display_roundtrip(ret->wl_display);
 
-    struct output_node *cur = ret->outputs;
-    while (cur != NULL) {
-        cur = cur->next;
-    }
-
     wl_display_roundtrip(ret->wl_display);
 
     return ret;
 err:
+    free(ret);
     return NULL;
 }
 
@@ -571,41 +571,6 @@ resize_surfaces(struct bar *bar)
     }
 
     bar_commit(bar);
-
-    return true;
-}
-
-bool
-reset_position(struct bar *bar)
-{
-    struct bar_backend *backend = bar->backend;
-    enum zwlr_layer_surface_v1_anchor location;
-
-    switch (bar->pos) {
-    case (BAR_TOP):
-        location
-            = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
-        break;
-    case (BAR_BOTTOM):
-        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
-                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
-        break;
-    case (BAR_LEFT):
-        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
-                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
-        break;
-    case (BAR_RIGHT):
-        location = ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT | ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
-                   | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
-        break;
-    }
-
-    struct output_node *cur = backend->outputs;
-    while (cur != NULL) {
-        struct output *out = cur->data;
-        zwlr_layer_surface_v1_set_anchor(out->surface.layer_surface, location);
-        cur = cur->next;
-    }
 
     return true;
 }
