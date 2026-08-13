@@ -114,10 +114,10 @@ bar_refresh_opacity(struct bar *bar)
 bool
 bar_refresh_height(struct bar *bar)
 {
-    if (bar->pos == BAR_LEFT || bar->pos == BAR_RIGHT) {
-        log_client_info(bar->ipc, __FILE__, __LINE__, "Bar position is left or right; doing nothing.");
-        return true;
-    }
+    // if (bar->pos == BAR_LEFT || bar->pos == BAR_RIGHT) {
+    //     log_client_info(bar->ipc, __FILE__, __LINE__, "Bar position is left or right; doing nothing.");
+    //     return true;
+    // }
 
     pixman_image_t *new = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, bar->width, bar->height, NULL,
                                                             bar->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
@@ -131,7 +131,7 @@ bar_refresh_height(struct bar *bar)
 
     bar->pix = new;
 
-    resize_surfaces(bar);
+    resize_buffers(bar);
 
     bar_refresh_bg_color(bar);
     bar_refresh_border(bar);
@@ -142,10 +142,10 @@ bar_refresh_height(struct bar *bar)
 bool
 bar_refresh_width(struct bar *bar)
 {
-    if (bar->pos == BAR_TOP || bar->pos == BAR_BOTTOM) {
-        log_client_info(bar->ipc, __FILE__, __LINE__, "Bar position is top or bottom; doing nothing.");
-        return true;
-    }
+    // if (bar->pos == BAR_TOP || bar->pos == BAR_BOTTOM) {
+    //     log_client_info(bar->ipc, __FILE__, __LINE__, "Bar position is top or bottom; doing nothing.");
+    //     return true;
+    // }
 
     pixman_image_t *new = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, bar->width, bar->height, NULL,
                                                             bar->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
@@ -159,7 +159,7 @@ bar_refresh_width(struct bar *bar)
 
     bar->pix = new;
 
-    resize_surfaces(bar);
+    resize_buffers(bar);
 
     bar_refresh_bg_color(bar);
     bar_refresh_border(bar);
@@ -211,11 +211,9 @@ bar_refresh_position(struct bar *bar)
         break;
     }
 
-    struct output_node *cur = backend->outputs;
-    while (cur != NULL) {
+    for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
         struct output *out = cur->data;
         zwlr_layer_surface_v1_set_anchor(out->surface.layer_surface, location);
-        cur = cur->next;
     }
 
     return true;
@@ -226,15 +224,19 @@ bar_refresh_margin(struct bar *bar)
 {
     /* TODO: resizing is broken. */
     int margin = bar->margin;
-    
-    struct output_node *cur = bar->backend->outputs;
-    while (cur != NULL) {
+
+    for (struct output_node *cur = bar->backend->outputs; cur != NULL; cur = cur->next) {
         struct output *output = cur->data;
         zwlr_layer_surface_v1_set_margin(output->surface.layer_surface, margin, margin, margin, margin);
-        cur = cur->next;
     }
-
+    /* Trigger configure event to get bar's new size */
+    bar_commit(bar);
     wl_display_roundtrip(bar->backend->wl_display);
+
+    if (!bar_refresh_height(bar))
+        return false;
+    if (!bar_refresh_width(bar))
+        return false;
 
     return true;
 }

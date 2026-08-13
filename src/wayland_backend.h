@@ -54,6 +54,6 @@ bool bar_commit(struct bar *bar);
 
 void init_item_backend();
 
-bool resize_surfaces(struct bar *bar);
+bool resize_buffers(struct bar *bar);
 
 #endif

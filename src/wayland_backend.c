@@ -234,23 +234,31 @@ static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener
 
 // END: wlr_surface_listener code
 
-static void
+static bool
 create_surface(struct output *output)
 {
+
     struct bar_backend *bar = output->backend;
+
+    if (!output->backend->height) {
+        log_info(__FILE__, __LINE__, "Bar height not specified; defaulting to 40");
+        bar->height = 40;
+        bar->bar_frontend->height = 40;
+    }
+
+    if (!output->backend->width) {
+        log_info(__FILE__, __LINE__, "Bar height not specified; defaulting to length of %s", output->name);
+        output->backend->width = output->width;
+        output->backend->bar_frontend->width = output->width;
+    }
 
     output->surface.height = bar->height;
     output->surface.width = bar->width;
 
-    if (bar->bar_frontend->displays != NULL && strstr(bar->bar_frontend->displays, output->name) != 0) {
-        log_err(__FILE__, __LINE__, "%s: Invalid output.", output->name);
-        exit(EXIT_FAILURE);
-    }
-
     output->surface.wl_surface = wl_compositor_create_surface(bar->wl_compositor);
     if (output->surface.wl_surface == NULL) {
         log_err(__FILE__, __LINE__, "Failed to create wl_surface for output %s", output->name);
-        exit(EXIT_FAILURE);
+        goto err;
     }
 
     enum zwlr_layer_shell_v1_layer layer = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
@@ -275,7 +283,7 @@ create_surface(struct output *output)
 
     if (output->surface.layer_surface == NULL) {
         log_err(__FILE__, __LINE__, "Failed to create layer_surface for output %s", output->name);
-        exit(EXIT_FAILURE);
+        goto err;
     }
 
     zwlr_layer_surface_v1_add_listener(output->surface.layer_surface, &zwlr_surface_listener, output);
@@ -306,6 +314,35 @@ create_surface(struct output *output)
     zwlr_layer_surface_v1_set_anchor(output->surface.layer_surface, location);
 
     log_dbg(__FILE__, __LINE__, 3, "Surface created for output %s", output->name);
+
+    resize(output);
+
+    wl_surface_commit(output->surface.wl_surface);
+
+    output->rendering_buf = create_buffer(output);
+    if (output->rendering_buf == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to create buffer for output %s", output->name);
+        goto err;
+    }
+
+    output->pending_buf = create_buffer(output);
+    if (output->pending_buf == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to create buffer for output %s", output->name);
+        goto err;
+    }
+
+    return true;
+
+err:
+    if (output->surface.wl_surface != NULL)
+        wl_surface_destroy(output->surface.wl_surface);
+    if (output->surface.layer_surface != NULL)
+        zwlr_layer_surface_v1_destroy(output->surface.layer_surface);
+    if (output->rendering_buf != NULL)
+        destroy_buffer(output->rendering_buf);
+    if (output->pending_buf != NULL)
+        destroy_buffer(output->pending_buf);
+    return false;
 }
 
 // START: wl_output_listener code
@@ -346,37 +383,6 @@ wl_output_done(void *data, struct wl_output *output)
     struct output *out = data;
     if (!out->scale)
         out->scale = 1;
-
-    create_surface(out);
-    resize(out);
-
-    wl_surface_commit(out->surface.wl_surface);
-
-    if (!out->backend->height) {
-        log_dbg(__FILE__, __LINE__, 3, "Bar height not specified; defaulting to 40");
-        out->backend->height = 40;
-        out->backend->bar_frontend->height = out->height;
-    }
-
-    if (!out->backend->width) {
-        log_dbg(__FILE__, __LINE__, 3, "Bar height not specified; defaulting to length of %s", out->name);
-        out->backend->width = out->width;
-        out->backend->bar_frontend->width = out->width;
-    }
-
-    struct surface_buf *buf_a = create_buffer(out);
-    if (buf_a == NULL) {
-        log_err(__FILE__, __LINE__, "Failed to create buffer for output %s", out->name);
-        exit(EXIT_FAILURE);
-    }
-    out->rendering_buf = buf_a;
-
-    struct surface_buf *buf_b = create_buffer(out);
-    if (buf_b == NULL) {
-        log_err(__FILE__, __LINE__, "Failed to create buffer for output %s", out->name);
-        exit(EXIT_FAILURE);
-    }
-    out->pending_buf = buf_b;
 }
 
 static void
@@ -435,14 +441,7 @@ registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, cons
         wl_output_add_listener(out->output, &wl_output_listener, out);
         log_dbg(__FILE__, __LINE__, 3, "Added wl_output listener.");
 
-        if (bar->outputs == NULL) { // TODO: why do i have to do this? fuck you
-            struct output_node *node = malloc(sizeof(struct output_node));
-            node->data = out;
-            node->next = NULL;
-            bar->outputs = node;
-        } else {
-            LL_push_back_output(bar->outputs, out);
-        }
+        LL_push_back_output(&bar->outputs, out);
     }
 }
 
@@ -506,10 +505,37 @@ init_bar_backend(struct bar *bar)
 
     wl_display_roundtrip(ret->wl_display);
 
+    /* TODO: I have no way of telling the user that the "display" 
+     * configuration option was incorrect; as it stands now, if that
+     * option doesn't match any output, the program segfaults
+     */
+    char *valid_outputs = ret->bar_frontend->displays;
+    for (struct output_node *cur = ret->outputs; cur != NULL; cur = cur->next) {
+        if (valid_outputs != NULL && strstr(valid_outputs, cur->data->name) == NULL)
+            continue;
+        if (!create_surface(cur->data))
+            goto err;
+        if (!resize(cur->data))
+            goto err;
+    }
+
     wl_display_roundtrip(ret->wl_display);
 
     return ret;
 err:
+    if (ret->wl_compositor != NULL)
+        wl_compositor_destroy(ret->wl_compositor);
+    if (ret->wl_display != NULL)
+        wl_display_disconnect(ret->wl_display);
+    if (ret->wl_registry != NULL)
+        wl_registry_destroy(ret->wl_registry);
+    struct output_node *to_free = NULL;
+    for (struct output_node *cur = ret->outputs; cur != NULL; cur = cur->next) {
+        if (to_free != NULL)
+            free(to_free);
+        to_free = cur;
+    }
+    free(to_free);
     free(ret);
     return NULL;
 }
@@ -518,8 +544,7 @@ bool
 bar_commit(struct bar *bar)
 {
     struct bar_backend *backend = bar->backend;
-    struct output_node *cur = backend->outputs;
-    while (cur != NULL) {
+    for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
         struct output *output = cur->data;
         struct surface_buf *buf = output->pending_buf;
         assert(buf->busy == false);
@@ -535,8 +560,6 @@ bar_commit(struct bar *bar)
         buf->busy = true;
 
         swap_buffers(&output->rendering_buf, &output->pending_buf);
-
-        cur = cur->next;
     }
     wl_display_roundtrip(backend->wl_display);
 
@@ -544,15 +567,14 @@ bar_commit(struct bar *bar)
 }
 
 bool
-resize_surfaces(struct bar *bar)
+resize_buffers(struct bar *bar)
 {
+    log_dbg(__FILE__, __LINE__, 3, "Resizing buffers.");
     struct bar_backend *backend = bar->backend;
     backend->height = bar->height;
     backend->width = bar->width;
 
-    struct output_node *cur = backend->outputs;
-
-    while (cur != NULL) {
+    for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
         struct output *out = cur->data;
         if (bar->height > out->pending_buf->height || bar->width > out->pending_buf->width) {
             destroy_buffer(out->pending_buf);
@@ -562,12 +584,18 @@ resize_surfaces(struct bar *bar)
 
             destroy_buffer(out->pending_buf);
             out->pending_buf = create_buffer(out);
+        } else {
+            /* Clear buffers */
+            memset(out->pending_buf->map, 0, out->pending_buf->size);
+
+            bar_commit(bar);
+
+            memset(out->pending_buf->map, 0, out->pending_buf->size);
         }
         out->surface.height = bar->height;
         out->surface.width = bar->width;
 
         resize(cur->data);
-        cur = cur->next;
     }
 
     bar_commit(bar);
