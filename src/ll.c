@@ -23,12 +23,26 @@ LL_push_back_output(struct output_node **head, struct output *data)
     (*head)->next = node;
 }
 
-void
-LL_push_back(void **head, void *data, enum type type)
+void 
+LL_delete_output(struct output_node **head, struct output_node *data)
 {
-    switch (type) {
-    case OUTPUT:
-        LL_push_back_output((struct output_node **)head, data);
-        break;
+    if (*head == data) {
+        *head = data->next;
+        free(data);
+        return;
     }
+
+    struct output_node *prev;
+    struct output_node *cur = *head;
+    while (cur != data && cur != NULL) {
+        prev = cur;
+        cur = cur->next;
+    }
+    
+    if (cur == NULL)
+        return;
+
+    prev->next = cur->next;
+
+    free(cur);
 }

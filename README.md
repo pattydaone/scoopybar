@@ -30,7 +30,7 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 - [ ] ACTUALLY LEARN HOW WAYLAND FUCKING WORKS YOU IDIOT
 
 
-
+- [ ] buffer release event isn't being sent on jay, but is on wlr and smithay... why?
 - [ ] Scale stuff properly
 - [ ] Fix margin not working on all sides
 - [ ] Move wayland backend to its own thread (?)
@@ -65,6 +65,7 @@ having a list of things ive completed helps keep me sane: no matter how bad thin
 - [X] Figure out how I intend to render things
 - [X] Implement border
 - [X] Sending errors to the client.
+- [X] Fixed monitor specification
 # The design
 
 ## Configuration 

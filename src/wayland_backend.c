@@ -510,13 +510,19 @@ init_bar_backend(struct bar *bar)
      * option doesn't match any output, the program segfaults
      */
     char *valid_outputs = ret->bar_frontend->displays;
-    for (struct output_node *cur = ret->outputs; cur != NULL; cur = cur->next) {
-        if (valid_outputs != NULL && strstr(valid_outputs, cur->data->name) == NULL)
+    for (struct output_node *cur = ret->outputs; cur != NULL;) {
+        if (valid_outputs != NULL && strstr(valid_outputs, cur->data->name) == NULL) {
+            struct output_node *tmp = cur;
+            cur = cur->next;
+            LL_delete_output(&ret->outputs, tmp);
             continue;
+        }
         if (!create_surface(cur->data))
             goto err;
         if (!resize(cur->data))
             goto err;
+
+        cur = cur->next;
     }
 
     wl_display_roundtrip(ret->wl_display);
@@ -553,7 +559,7 @@ bar_commit(struct bar *bar)
         pixman_image_composite(PIXMAN_OP_SRC, bar->pix, NULL, buf->pix, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
 
         wl_surface_attach(output->surface.wl_surface, buf->wl_buf, 0, 0);
-        wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, bar->width, bar->height);
+        wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, INT32_MAX, INT32_MAX);
         wl_surface_commit(output->surface.wl_surface);
         wl_display_flush(backend->wl_display);
 

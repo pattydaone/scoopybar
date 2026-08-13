@@ -5,10 +5,6 @@
 
 #include "wayland_backend.h"
 
-enum type {
-    OUTPUT,
-};
-
 struct output_node {
     struct output *data;
     struct output_node *next;
@@ -16,6 +12,6 @@ struct output_node {
 
 void LL_push_back_output(struct output_node **head, struct output *data);
 
-void LL_push_back(void **head, void *data, enum type type);
+void  LL_delete_output(struct output_node **head, struct output_node *data);
 
 #endif

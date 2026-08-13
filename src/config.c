@@ -301,7 +301,7 @@ set_display(struct bar *bar, char *value, int cur_line)
     if (strcmp(value, "all") == 0) {
         bar->displays = NULL;
     } else
-        strcpy(bar->displays, value);
+        bar->displays = strdup(value);
     return true;
 }
 
