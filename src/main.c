@@ -33,10 +33,12 @@ print_usage()
 }
 
 bool
-prep_and_send_msg(struct bar_ipc *ipc, int argc, char **argv)
+prep_and_send_msg(struct bar_ipc *ipc, char type, int argc, char **argv)
 {
     char msg[1024];
-    int msg_index = 0;
+    msg[0] = type;
+    msg[1] = ' ';
+    int msg_index = 2;
     for (int i = 2; i < argc; ++i) {
         char *cur = argv[i];
         int cur_len = strlen(cur);
@@ -60,7 +62,7 @@ prep_and_send_msg(struct bar_ipc *ipc, int argc, char **argv)
 }
 
 bool
-run_client(int argc, char **argv)
+run_client(char type, int argc, char **argv)
 {
     struct bar_ipc *ipc = malloc(sizeof(struct bar_ipc));
     ipc->socket = malloc(sizeof(struct sockaddr_un));
@@ -73,7 +75,7 @@ run_client(int argc, char **argv)
     if (!IPC_socket_init(ipc, CLIENT))
         return false;
 
-    if (!prep_and_send_msg(ipc, argc, argv))
+    if (!prep_and_send_msg(ipc, type, argc, argv))
         goto out;
 
     int s = 0;
@@ -102,7 +104,12 @@ out:
 int
 main(int argc, char **argv)
 {
-    char config_path[512] = "/home/patrick/Projects/scoopybar/configurations/config.ini";
+    const char *home_dir = getenv("HOME");
+    const char *rest = "/.config/scoopybar/config.ini";
+    char config_path[strlen(home_dir) + strlen(rest) + 1];
+    char *n = stpcpy(config_path, home_dir);
+    strcpy(n, rest);
+
     static const struct option longoptions[] = {{"message", required_argument, 0, 'm'},
                                                 {"query", required_argument, 0, 'q'},
                                                 {"config", required_argument, 0, 'c'},
@@ -119,11 +126,14 @@ main(int argc, char **argv)
             strncpy(config_path, optarg, 512);
             break;
         case 'm':
-            if (!run_client(argc, argv)) {
+            if (!run_client(opt_char, argc, argv)) {
                 exit(EXIT_FAILURE);
             }
             exit(EXIT_SUCCESS);
         case 'q':
+            if (!run_client(opt_char, argc, argv)) {
+                exit(EXIT_FAILURE);
+            }
             exit(EXIT_SUCCESS);
         case ':':
             exit(EXIT_FAILURE);
@@ -140,6 +150,7 @@ main(int argc, char **argv)
 
     struct ConfParser *p = PARSER_create(config_path, 512);
     if (p == NULL) {
+        log_err(__FILE__, __LINE__, "%s: path not found", config_path);
         exit(EXIT_FAILURE);
     }
 

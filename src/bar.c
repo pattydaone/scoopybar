@@ -26,6 +26,11 @@ init_bar(struct ConfParser *p)
     }
 
     ret->backend = init_bar_backend(ret);
+    if (ret->backend == NULL) {
+        log_err(__FILE__, __LINE__, "Failed to create bar backend.");
+        bar_destroy(ret);
+        return NULL;
+    }
 
     struct bar_ipc *bar_ipc = malloc(sizeof(struct bar_ipc));
     bar_ipc->socket = malloc(sizeof(struct sockaddr_un));
@@ -45,8 +50,11 @@ init_bar(struct ConfParser *p)
 void
 bar_destroy(struct bar *bar)
 {
-    IPC_socket_destroy(bar->ipc, SERVER);
-    // TODO: destroy_bar_backend(bar->backend);
+    if (bar->ipc != NULL)
+        IPC_socket_destroy(bar->ipc, SERVER);
+
+    if (bar->backend != NULL)
+        destroy_bar_backend(bar->backend);
 
     if (bar->displays != NULL)
         free(bar->displays);
@@ -170,6 +178,7 @@ bar_refresh_width(struct bar *bar)
 bool
 bar_refresh_border(struct bar *bar)
 {
+    bar_refresh_bg_color(bar);
     bar->width_with_border = bar->width - 2 * bar->border.width;
     bar->height_with_border = bar->height - 2 * bar->border.width;
     pixman_rectangle16_t rects[4] = {/* Top */

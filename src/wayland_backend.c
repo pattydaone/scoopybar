@@ -163,8 +163,6 @@ create_buffer(struct output *output)
 bool
 destroy_buffer(struct surface_buf *buf)
 {
-    assert(!buf->busy);
-
     pixman_image_unref(buf->pix);
     wl_buffer_destroy(buf->wl_buf);
     munmap(buf->map, buf->size);
@@ -505,12 +503,14 @@ init_bar_backend(struct bar *bar)
 
     wl_display_roundtrip(ret->wl_display);
 
-    /* TODO: I have no way of telling the user that the "display" 
-     * configuration option was incorrect; as it stands now, if that
-     * option doesn't match any output, the program segfaults
-     */
     char *valid_outputs = ret->bar_frontend->displays;
     for (struct output_node *cur = ret->outputs; cur != NULL;) {
+        if (cur->data->name == NULL) {
+            struct output_node *tmp = cur;
+            cur = cur->next;
+            LL_delete_output(&ret->outputs, tmp);
+            continue;
+        }
         if (valid_outputs != NULL && strstr(valid_outputs, cur->data->name) == NULL) {
             struct output_node *tmp = cur;
             cur = cur->next;
@@ -524,26 +524,54 @@ init_bar_backend(struct bar *bar)
 
         cur = cur->next;
     }
+    if (ret->outputs == NULL) {
+        log_err(__FILE__, __LINE__, "No displays found.");
+        goto err;
+    }
 
     wl_display_roundtrip(ret->wl_display);
 
     return ret;
 err:
-    if (ret->wl_compositor != NULL)
-        wl_compositor_destroy(ret->wl_compositor);
-    if (ret->wl_display != NULL)
-        wl_display_disconnect(ret->wl_display);
-    if (ret->wl_registry != NULL)
-        wl_registry_destroy(ret->wl_registry);
+    destroy_bar_backend(ret);
+    return NULL;
+}
+
+void
+destroy_bar_backend(struct bar_backend *backend)
+{
+    if (backend->wl_compositor != NULL) {
+        wl_compositor_destroy(backend->wl_compositor);
+    }
+    if (backend->wl_display != NULL) {
+        wl_display_disconnect(backend->wl_display);
+    }
     struct output_node *to_free = NULL;
-    for (struct output_node *cur = ret->outputs; cur != NULL; cur = cur->next) {
-        if (to_free != NULL)
+    for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
+        if (to_free != NULL) {
+            struct output *output = to_free->data;
+            if (output->name != NULL) {
+                free(output->name);
+            }
+            if (output->pending_buf != NULL)
+                destroy_buffer(output->pending_buf);
+            if (output->rendering_buf != NULL)
+                destroy_buffer(output->rendering_buf);
+            if (output->surface.layer_surface != NULL) {
+                zwlr_layer_surface_v1_destroy(output->surface.layer_surface);
+            }
+            if (output->surface.wl_surface != NULL) {
+                wl_surface_destroy(output->surface.wl_surface);
+            }
+            free(output);
             free(to_free);
+        }
         to_free = cur;
     }
-    free(to_free);
-    free(ret);
-    return NULL;
+    if (to_free != NULL)
+        free(to_free);
+
+    free(backend);
 }
 
 bool

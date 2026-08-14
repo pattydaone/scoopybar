@@ -177,6 +177,8 @@ char *
 extract_kv(struct bar_ipc *ipc, char *key, char *value)
 {
     char *msgs = ipc->msg;
+    /* First two chars determine whether this is a message or query */
+    msgs += 2;
     int i = 0;
     char cur;
     while ((cur = msgs[i]) != '=') {
@@ -212,7 +214,7 @@ extract_kv(struct bar_ipc *ipc, char *key, char *value)
 }
 
 bool
-find_by_key(struct bar *bar, char *key, char *value)
+m_find_by_key(struct bar *bar, char *key, char *value)
 {
     /* TODO: Break this down so that before the . and after
      * are treated as separate entities. This won't be very 
@@ -252,16 +254,18 @@ bool
 server_process_msg(struct bar *bar)
 {
     char *msgs = bar->ipc->msg;
+    char type = msgs[0];
     char key[512];
     char value[512];
 
     while ((msgs = extract_kv(bar->ipc, key, value)) != NULL && msgs[0] != '\0')
-        find_by_key(bar, key, value);
+        if (type == 'm' && m_find_by_key(bar, key, value))
+            return false;
 
     if (msgs == NULL)
         return false;
 
-    if (!find_by_key(bar, key, value))
+    if (type == 'm' && !m_find_by_key(bar, key, value))
         return false;
 
     bar->ipc->msg_bytes = snprintf(bar->ipc->msg, 1024, "SUCCESS");

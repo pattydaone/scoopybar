@@ -487,14 +487,17 @@ bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr)
     case BAR_BORDER_WIDTH:
         if (!set_border_width(bar, value, 0))
             return false;
+        bar_refresh_border(bar);
         break;
     case BAR_BORDER_COLOR:
         if (!set_border_color(bar, value, 0))
             return false;
+        bar_refresh_border(bar);
         break;
     case BAR_BORDER_OPACITY:
         if (!set_border_opacity(bar, value, 0))
             return false;
+        bar_refresh_border(bar);
         break;
     }
 
