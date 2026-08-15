@@ -1,7 +1,7 @@
 #include "wayland_backend.h"
-#include "utils/log.h"
 #include "bar.h"
 #include "ll.h"
+#include "utils/log.h"
 #include "wlr-layer-shell-unstable-v1.h"
 
 #include <assert.h>
@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/poll.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -575,6 +576,63 @@ destroy_bar_backend(struct bar_backend *backend)
 }
 
 bool
+wayland_event_loop(struct bar *bar)
+{
+    /* TODO: move all of this to bar_loop and make socketfd
+     * pollable so everything is all in one place
+     */
+    struct bar_backend *backend = bar->backend;
+
+    while (wl_display_prepare_read(backend->wl_display) != 0) {
+        if (wl_display_dispatch_pending(backend->wl_display) == -1) {
+            log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
+            goto err;
+        }
+    }
+
+    wl_display_flush(backend->wl_display);
+
+    struct pollfd fds[] = {
+        { .fd = wl_display_get_fd(backend->wl_display), .events = POLLIN },
+        { .fd = bar->abord_fd, .events = POLLIN }
+    };
+
+    while (true) {
+        int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
+        if (ret == -1) {
+            log_err(__FILE__, __LINE__, "Failed to poll.");
+            goto err;
+        }
+
+        if (fds[1].revents & POLLIN) {
+            break;
+        }
+
+        if (fds[0].revents & POLLIN) {
+            if (wl_display_read_events(backend->wl_display) == -1) {
+                log_err(__FILE__, __LINE__, "Failed to read from wayland socket.");
+                goto err;
+            }
+
+            while (wl_display_prepare_read(backend->wl_display) != 0) {
+                if (wl_display_dispatch_pending(backend->wl_display) == -1) {
+                    log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
+                    goto err;
+                }
+            }
+
+            wl_display_flush(backend->wl_display);
+        }
+    }
+
+    wl_display_cancel_read(backend->wl_display);
+    return true;
+err:
+    wl_display_cancel_read(backend->wl_display);
+    return false;
+}
+
+bool
 bar_commit(struct bar *bar)
 {
     struct bar_backend *backend = bar->backend;
@@ -596,6 +654,7 @@ bar_commit(struct bar *bar)
         swap_buffers(&output->rendering_buf, &output->pending_buf);
     }
     wl_display_roundtrip(backend->wl_display);
+    wl_display_dispatch_pending(backend->wl_display);
 
     return true;
 }

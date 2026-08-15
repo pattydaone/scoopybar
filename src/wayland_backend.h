@@ -50,6 +50,8 @@ struct bar_backend *init_bar_backend(struct bar *bar);
 
 void destroy_bar_backend(struct bar_backend *backend);
 
+bool wayland_event_loop(struct bar *bar);
+
 bool bar_commit(struct bar *bar);
 
 void init_item_backend();

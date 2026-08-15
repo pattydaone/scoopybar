@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/eventfd.h>
 
 #include "wayland_backend.h"
 
@@ -44,6 +45,13 @@ init_bar(struct ConfParser *p)
      */
     ret->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, ret->width, ret->height, NULL, ret->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
 
+    ret->abord_fd = eventfd(0, EFD_CLOEXEC);
+    if (ret->abord_fd == -1) {
+        log_err(__FILE__, __LINE__, "Failed to create abort fd.");
+        bar_destroy(ret);
+        return NULL;
+    }
+
     return ret;
 }
 
@@ -58,6 +66,9 @@ bar_destroy(struct bar *bar)
 
     if (bar->displays != NULL)
         free(bar->displays);
+
+    if (close(bar->abord_fd) == -1)
+        log_err(__FILE__, __LINE__, "Failed to close abort fd.");
 
     free(bar);
 }
@@ -91,6 +102,10 @@ bar_loop(struct bar *bar)
 
         /* TODO: replace with nanosleep */
         usleep(8000);
+    }
+
+    if (write(bar->abord_fd, &(uint32_t){1}, sizeof(uint32_t))) {
+        log_err(__FILE__, __LINE__, "Failed to signal abort to wayland event thread.");
     }
 } 
 

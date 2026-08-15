@@ -27,19 +27,19 @@ I am taking great reference from "yambar" for the wayland backend, as this bar i
 
 # TODO list
 
-- [ ] ACTUALLY LEARN HOW WAYLAND FUCKING WORKS YOU IDIOT
-
-
 - [ ] buffer release event isn't being sent on jay, but is on wlr and smithay... why?
-- [ ] Scale stuff properly
-- [ ] Fix margin not working on all sides
 - [ ] Move wayland backend to its own thread (?)
+- [ ] Add colors and time stamps for log statements
 - [ ] Add ability to change bar settings on the fly
 - [ ] Add ability to query bar information
 - [ ] Extra configuration testing
 - [ ] Add basic items
 - [ ] Figure out text rendering
 - [ ] Configuration for text items
+
+# Putting off
+- [ ] Scale stuff properly
+- [ ] Fix margin not working on all sides
 
 # Done
 
