@@ -13,13 +13,20 @@ objs  := $(src_objs)  $(util_objs)  $(include_objs)
 includes := -I ../include/ -I /usr/include/pixman-1/ -I ..
 libs := -lwayland-client -lm -lrt -lpixman-1 # TODO: replace with pkg-config invokations
 
-all: bin build clean 
+debug_opts := -O0 -Wall -Wextra -Wpedantic -Werror -g -fsanitize=address
+
+all: bin build_debug clean 
+release: bin build_release clean
 
 bin:
 	mkdir -p ../bin
 
-build: $(files)
-	gcc -Wall -g $(includes) -c $(files)
+build_debug: $(files)
+	gcc -std=gnu23 $(debug_opts) $(includes) -c $(files)
+	gcc $(objs) -fsanitize=address -o ../bin/main $(libs)
+
+build_release:
+	gcc --std=c2x -O2 $(includes) -c $(files)
 	gcc $(objs) -o ../bin/main $(libs)
 
 clean:

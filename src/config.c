@@ -3,7 +3,6 @@
 #include "wayland_backend.h"
 
 #include <errno.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -296,7 +295,7 @@ set_border_opacity(struct bar *bar, char *value, int cur_line)
 }
 
 bool
-set_display(struct bar *bar, char *value, int cur_line)
+set_display(struct bar *bar, char *value, int)
 {
     if (strcmp(value, "all") == 0) {
         bar->displays = NULL;

@@ -2,7 +2,6 @@
 #define IPC_H
 
 #include "bar.h"
-#include <stdbool.h>
 #include <stddef.h>
 
 #include <sys/un.h>
@@ -13,7 +12,7 @@ struct bar_ipc {
     int accept_fd;
 
     char msg[1024];
-    size_t msg_bytes; // For clients sending message
+    ssize_t msg_bytes; // For clients sending message
 };
 
 enum sock_type {

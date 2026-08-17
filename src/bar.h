@@ -2,7 +2,6 @@
 #define BAR_H
 
 #include <signal.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -25,7 +24,6 @@ enum bar_layer {
 };
 
 struct bar {
-    int abord_fd;
     struct bar_backend *backend;
     struct bar_ipc *ipc;
 

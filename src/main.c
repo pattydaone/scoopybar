@@ -89,8 +89,10 @@ run_client(char type, int argc, char **argv)
         goto out;
     }
 
-    if (strcmp(ipc->msg, "SUCCESS") == 0)
+    if (strcmp(ipc->msg, "SUCCESS") == 0) {
+        IPC_socket_destroy(ipc, CLIENT);
         return true;
+    }
 
     fprintf(stderr, "%s\n", ipc->msg);
 

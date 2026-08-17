@@ -7,7 +7,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/eventfd.h>
+#include <sys/poll.h>
 
 #include "wayland_backend.h"
 
@@ -25,6 +25,7 @@ init_bar(struct ConfParser *p)
             return NULL;
         }
     }
+    PARSER_clean(p);
 
     ret->backend = init_bar_backend(ret);
     if (ret->backend == NULL) {
@@ -45,19 +46,13 @@ init_bar(struct ConfParser *p)
      */
     ret->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, ret->width, ret->height, NULL, ret->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
 
-    ret->abord_fd = eventfd(0, EFD_CLOEXEC);
-    if (ret->abord_fd == -1) {
-        log_err(__FILE__, __LINE__, "Failed to create abort fd.");
-        bar_destroy(ret);
-        return NULL;
-    }
-
     return ret;
 }
 
 void
 bar_destroy(struct bar *bar)
 {
+    log_dbg(__FILE__, __LINE__, 3, "bar destroy called.");
     if (bar->ipc != NULL)
         IPC_socket_destroy(bar->ipc, SERVER);
 
@@ -67,8 +62,8 @@ bar_destroy(struct bar *bar)
     if (bar->displays != NULL)
         free(bar->displays);
 
-    if (close(bar->abord_fd) == -1)
-        log_err(__FILE__, __LINE__, "Failed to close abort fd.");
+    if (bar->pix != NULL)
+        pixman_image_unref(bar->pix);
 
     free(bar);
 }
@@ -94,19 +89,63 @@ bar_loop(struct bar *bar)
         bar_refresh_border(bar);
     bar_commit(bar);
 
+    struct bar_backend *backend = bar->backend;
+
+    while (wl_display_prepare_read(backend->wl_display) != 0) {
+        if (wl_display_dispatch_pending(backend->wl_display) == -1) {
+            log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
+            goto err;
+        }
+    }
+
+    wl_display_flush(backend->wl_display);
+
+    struct pollfd fds[] = {{.fd = wl_display_get_fd(backend->wl_display), .events = POLLIN},
+                           {.fd = bar->ipc->socket_fd, .events = POLLIN}};
+
     while (check_sigint()) {
-        if (server_receive_msg(bar->ipc)) {
-            if (server_process_msg(bar))
-                IPC_send_msg(bar->ipc);
+        int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
+        if (ret == -1) {
+            log_err(__FILE__, __LINE__, "Failed to poll.");
+            goto err;
         }
 
-        /* TODO: replace with nanosleep */
-        usleep(8000);
+        if (fds[0].revents & POLLIN) {
+            if (wl_display_read_events(backend->wl_display) == -1) {
+                log_err(__FILE__, __LINE__, "Failed to read from wayland socket.");
+                goto err;
+            }
+
+            while (wl_display_prepare_read(backend->wl_display) != 0) {
+                if (wl_display_dispatch_pending(backend->wl_display) == -1) {
+                    log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
+                    goto err;
+                }
+            }
+
+            wl_display_flush(backend->wl_display);
+        }
+
+        if (fds[1].revents & POLLIN) {
+            if (!server_receive_msg(bar->ipc)) {
+                log_err(__FILE__, __LINE__, "Failed to receive message.");
+                goto err;
+            }
+
+            if (!server_process_msg(bar)) {
+                log_err(__FILE__, __LINE__, "Failed to process message.");
+                goto err;
+            }
+
+            if (!IPC_send_msg(bar->ipc)) {
+                log_err(__FILE__, __LINE__, "Failed to reply to message.");
+                goto err;
+            }
+        }
     }
 
-    if (write(bar->abord_fd, &(uint32_t){1}, sizeof(uint32_t))) {
-        log_err(__FILE__, __LINE__, "Failed to signal abort to wayland event thread.");
-    }
+err:
+    wl_display_cancel_read(backend->wl_display);
 } 
 
 bool

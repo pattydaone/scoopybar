@@ -117,7 +117,7 @@ server_receive_msg(struct bar_ipc *server)
         log_err(__FILE__, __LINE__, "Failed to accept.");
         return false;
     }
-    size_t b_read = recv(server->accept_fd, server->msg, 1023, 0);
+    ssize_t b_read = recv(server->accept_fd, server->msg, 1023, 0);
     if (b_read == -1) {
         log_err(__FILE__, __LINE__, "Error reading from socket.");
         return false;
@@ -132,7 +132,7 @@ server_receive_msg(struct bar_ipc *server)
 bool
 client_receive_msg(struct bar_ipc *client)
 {
-    size_t b_read = recv(client->socket_fd, client->msg, 1023, 0);
+    ssize_t b_read = recv(client->socket_fd, client->msg, 1023, 0);
     if (b_read == -1) {
         /* TODO: consider making client blocking. On one hand, if the bar doesn't 
          * respond, something has gone seriously wrong. On the other hand, if the 
@@ -156,7 +156,7 @@ client_receive_msg(struct bar_ipc *client)
 bool
 IPC_send_msg(struct bar_ipc *client)
 {
-    size_t b_written;
+    ssize_t b_written;
     if (client->accept_fd == -1)
         b_written = send(client->socket_fd, client->msg, client->msg_bytes, 0);
     else 

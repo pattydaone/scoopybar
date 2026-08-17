@@ -19,7 +19,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <stdbool.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/poll.h>
@@ -91,7 +90,7 @@ allocate_shm_file(size_t size)
 // To here
 
 static void
-wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
+wl_buffer_release(void *data, struct wl_buffer *)
 {
     struct surface_buf *surface_buf = data;
     log_dbg(__FILE__, __LINE__, 3, "Buffer release.");
@@ -167,6 +166,7 @@ destroy_buffer(struct surface_buf *buf)
     pixman_image_unref(buf->pix);
     wl_buffer_destroy(buf->wl_buf);
     munmap(buf->map, buf->size);
+    free(buf);
     return true;
 }
 
@@ -223,7 +223,7 @@ zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32
 }
 
 static void
-zwlr_surface_closed(void *data, struct zwlr_layer_surface_v1 *surface)
+zwlr_surface_closed(void *, struct zwlr_layer_surface_v1 *)
 {
     // TODO
 }
@@ -347,15 +347,15 @@ err:
 // START: wl_output_listener code
 
 static void
-wl_output_geometry(void *data, struct wl_output *output, int x, int y, int physical_width, int physical_height,
-                   int subpixel, const char *make, const char *model, int transform)
+wl_output_geometry(void *data, struct wl_output *, int, int, int, int,
+                   int, const char *, const char *, int transform)
 {
     struct output *out = data;
     out->transform = transform;
 }
 
 static void
-wl_output_mode(void *data, struct wl_output *output, uint flags, int width, int height, int refresh)
+wl_output_mode(void *data, struct wl_output *, uint32_t, int width, int height, int)
 {
     struct output *out = data;
     out->width = width;
@@ -363,21 +363,21 @@ wl_output_mode(void *data, struct wl_output *output, uint flags, int width, int 
 }
 
 static void
-wl_output_scale(void *data, struct wl_output *output, int scale)
+wl_output_scale(void *data, struct wl_output *, int scale)
 {
     struct output *out = data;
     out->scale = scale;
 }
 
 static void
-wl_output_name(void *data, struct wl_output *output, const char *name)
+wl_output_name(void *data, struct wl_output *, const char *name)
 {
     struct output *out = data;
     out->name = (name != NULL ? strdup(name) : NULL);
 }
 
 static void
-wl_output_done(void *data, struct wl_output *output)
+wl_output_done(void *data, struct wl_output *)
 {
     struct output *out = data;
     if (!out->scale)
@@ -385,7 +385,7 @@ wl_output_done(void *data, struct wl_output *output)
 }
 
 static void
-wl_output_description(void *data, struct wl_output *output, const char *description)
+wl_output_description(void *, struct wl_output *, const char *)
 {
     // No neeed
 }
@@ -445,7 +445,7 @@ registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, cons
 }
 
 static void
-registry_global_remove(void *data, struct wl_registry *wl_registry, uint32_t name)
+registry_global_remove(void *, struct wl_registry *, uint32_t)
 {
 }
 
@@ -466,11 +466,11 @@ init_bar_backend(struct bar *bar)
     ret->height = bar->height;
     ret->background_color = &bar->background_color;
     ret->background_color->alpha = 65535 * bar->opacity;
+    ret->outputs = NULL;
 
     ret->wl_display = wl_display_connect(NULL);
     if (ret->wl_display == NULL) {
         log_err(__FILE__, __LINE__, "Failed to connect to wl_display.");
-        goto err;
     }
 
     ret->wl_registry = wl_display_get_registry(ret->wl_display);
@@ -541,16 +541,13 @@ err:
 void
 destroy_bar_backend(struct bar_backend *backend)
 {
-    if (backend->wl_compositor != NULL) {
-        wl_compositor_destroy(backend->wl_compositor);
-    }
-    if (backend->wl_display != NULL) {
-        wl_display_disconnect(backend->wl_display);
-    }
     struct output_node *to_free = NULL;
     for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
-        if (to_free != NULL) {
-            struct output *output = to_free->data;
+        if (cur->data != NULL) {
+            struct output *output = cur->data;
+            if (output->output != NULL) {
+                wl_output_destroy(output->output);
+            }
             if (output->name != NULL) {
                 free(output->name);
             }
@@ -565,12 +562,32 @@ destroy_bar_backend(struct bar_backend *backend)
                 wl_surface_destroy(output->surface.wl_surface);
             }
             free(output);
+        }
+        if (to_free != NULL) {
             free(to_free);
         }
         to_free = cur;
     }
     if (to_free != NULL)
         free(to_free);
+
+    if (backend->zwlr_layer_shell != NULL) {
+        zwlr_layer_shell_v1_destroy(backend->zwlr_layer_shell);
+    }
+
+    if (backend->wl_shm != NULL) {
+        wl_shm_destroy(backend->wl_shm);
+    }
+
+    if (backend->wl_compositor != NULL) {
+        wl_compositor_destroy(backend->wl_compositor);
+    }
+    if (backend->wl_registry != NULL) {
+        wl_registry_destroy(backend->wl_registry);
+    }
+    if (backend->wl_display != NULL) {
+        wl_display_disconnect(backend->wl_display);
+    }
 
     free(backend);
 }
@@ -594,7 +611,6 @@ wayland_event_loop(struct bar *bar)
 
     struct pollfd fds[] = {
         { .fd = wl_display_get_fd(backend->wl_display), .events = POLLIN },
-        { .fd = bar->abord_fd, .events = POLLIN }
     };
 
     while (true) {
@@ -602,10 +618,6 @@ wayland_event_loop(struct bar *bar)
         if (ret == -1) {
             log_err(__FILE__, __LINE__, "Failed to poll.");
             goto err;
-        }
-
-        if (fds[1].revents & POLLIN) {
-            break;
         }
 
         if (fds[0].revents & POLLIN) {
@@ -653,8 +665,6 @@ bar_commit(struct bar *bar)
 
         swap_buffers(&output->rendering_buf, &output->pending_buf);
     }
-    wl_display_roundtrip(backend->wl_display);
-    wl_display_dispatch_pending(backend->wl_display);
 
     return true;
 }

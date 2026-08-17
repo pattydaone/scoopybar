@@ -1,8 +1,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <stdbool.h>
-
 #include "utils/config_parser.h"
 #include "bar.h"
 
