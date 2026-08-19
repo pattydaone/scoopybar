@@ -5,25 +5,20 @@
 #include "wlr-layer-shell-unstable-v1.h"
 
 #include <assert.h>
-#include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <wayland-client-core.h>
-#include <wayland-client-protocol.h>
-#include <wayland-client.h>
 
+#include <wayland-client.h>
 #include <pixman.h>
 
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <string.h>
 #include <sys/mman.h>
 #include <sys/poll.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+
 
 struct surface_buf {
     struct wl_buffer *wl_buf;
@@ -666,6 +661,9 @@ bar_commit(struct bar *bar)
         swap_buffers(&output->rendering_buf, &output->pending_buf);
     }
 
+    wl_display_roundtrip(backend->wl_display);
+    wl_display_dispatch_pending(backend->wl_display);
+
     return true;
 }
 
@@ -695,6 +693,7 @@ resize_buffers(struct bar *bar)
 
             memset(out->pending_buf->map, 0, out->pending_buf->size);
         }
+        wl_display_flush(backend->wl_display);
         out->surface.height = bar->height;
         out->surface.width = bar->width;
 
@@ -702,6 +701,28 @@ resize_buffers(struct bar *bar)
     }
 
     bar_commit(bar);
+
+    wl_display_flush(backend->wl_display);
+
+    return true;
+}
+
+bool
+process_wl_events(struct bar_backend *backend)
+{
+    if (wl_display_read_events(backend->wl_display) == -1) {
+        log_err(__FILE__, __LINE__, "Failed to read from wayland socket.");
+        return false;
+    }
+
+    while (wl_display_prepare_read(backend->wl_display) == -1) {
+        if (wl_display_dispatch_pending(backend->wl_display) == -1) {
+            log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
+            return false;
+        }
+    }
+
+    wl_display_flush(backend->wl_display);
 
     return true;
 }

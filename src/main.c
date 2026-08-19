@@ -68,12 +68,11 @@ run_client(char type, int argc, char **argv)
     ipc->socket = malloc(sizeof(struct sockaddr_un));
     if (ipc == NULL || ipc->socket == NULL) {
         log_err(__FILE__, __LINE__, "Failed to allocate ipc structs.");
-        IPC_socket_destroy(ipc, CLIENT);
-        return false;
+        goto out;
     }
 
     if (!IPC_socket_init(ipc, CLIENT))
-        return false;
+        goto out;
 
     if (!prep_and_send_msg(ipc, type, argc, argv))
         goto out;

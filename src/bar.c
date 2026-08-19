@@ -68,6 +68,7 @@ bar_destroy(struct bar *bar)
     free(bar);
 }
 
+/* TODO: move this to a utils file or smth. it doesnt need to be here. */
 bool
 check_sigint()
 {
@@ -91,6 +92,7 @@ bar_loop(struct bar *bar)
 
     struct bar_backend *backend = bar->backend;
 
+    /*
     while (wl_display_prepare_read(backend->wl_display) != 0) {
         if (wl_display_dispatch_pending(backend->wl_display) == -1) {
             log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
@@ -98,7 +100,9 @@ bar_loop(struct bar *bar)
         }
     }
 
-    wl_display_flush(backend->wl_display);
+    wl_display_flush(backend->wl_display);*/
+    
+    wl_display_dispatch_pending(backend->wl_display);
 
     struct pollfd fds[] = {{.fd = wl_display_get_fd(backend->wl_display), .events = POLLIN},
                            {.fd = bar->ipc->socket_fd, .events = POLLIN}};
@@ -111,19 +115,9 @@ bar_loop(struct bar *bar)
         }
 
         if (fds[0].revents & POLLIN) {
-            if (wl_display_read_events(backend->wl_display) == -1) {
-                log_err(__FILE__, __LINE__, "Failed to read from wayland socket.");
-                goto err;
-            }
-
-            while (wl_display_prepare_read(backend->wl_display) != 0) {
-                if (wl_display_dispatch_pending(backend->wl_display) == -1) {
-                    log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
-                    goto err;
-                }
-            }
-
-            wl_display_flush(backend->wl_display);
+            /*
+            if (!process_wl_events(backend))
+                goto err;*/
         }
 
         if (fds[1].revents & POLLIN) {
