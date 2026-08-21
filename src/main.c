@@ -1,6 +1,8 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <sys/poll.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -77,13 +79,22 @@ run_client(char type, int argc, char **argv)
     if (!prep_and_send_msg(ipc, type, argc, argv))
         goto out;
 
-    int s = 0;
-
-    while (s < 20 && !client_receive_msg(ipc)) {
-        usleep(50000);
-        ++s;
+    int s;
+    struct pollfd fd[] = {{ .fd = ipc->socket_fd, .events = POLLIN }};
+    for (s = 0; s < 20; ++s) {
+        if (poll(fd, sizeof(fd)/sizeof(fd[0]), 5) == -1) {
+            log_err(__FILE__, __LINE__, "Failed to poll.");
+            goto out;
+        }
+        
+        if (fd[0].revents & POLLIN) {
+            if (!client_receive_msg(ipc)) 
+                goto out;
+            break;
+        }
     }
-    if (s > 5) {
+
+    if (s >= 20) {
         log_err(__FILE__, __LINE__, "Bar didn't return message.");
         goto out;
     }

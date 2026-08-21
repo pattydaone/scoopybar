@@ -70,6 +70,7 @@ IPC_socket_init(struct bar_ipc *bar_ipc, enum sock_type type)
     assert(bar_ipc != NULL);
 
     bar_ipc->accept_fd = -1;
+    /* TODO: consider swapping SOCK_STREAM for SOCK_SEQPACKET */
     bar_ipc->socket_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     bar_ipc->socket->sun_family = AF_UNIX;
     if (bar_ipc->socket_fd == -1) {
@@ -110,10 +111,6 @@ server_receive_msg(struct bar_ipc *server)
 {
     server->accept_fd = accept(server->socket_fd, NULL, NULL);
     if (server->accept_fd == -1) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) { /* No connection present. */
-            errno = 0;
-            return false;
-        }
         log_err(__FILE__, __LINE__, "Failed to accept.");
         return false;
     }
@@ -134,14 +131,6 @@ client_receive_msg(struct bar_ipc *client)
 {
     ssize_t b_read = recv(client->socket_fd, client->msg, 1023, 0);
     if (b_read == -1) {
-        /* TODO: consider making client blocking. On one hand, if the bar doesn't 
-         * respond, something has gone seriously wrong. On the other hand, if the 
-         * bar doesn't respond, the client shouldn't block indefinitely...
-         */
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            errno = 0;
-            return false;
-        }
         log_err(__FILE__, __LINE__, "Error reading from socket.");
         return false;
     }

@@ -587,52 +587,36 @@ destroy_bar_backend(struct bar_backend *backend)
     free(backend);
 }
 
-bool
-wayland_event_loop(struct bar *bar)
+bool /* This is so shit */
+block_until_wl_event(struct bar_backend *backend)
 {
-    /* TODO: move all of this to bar_loop and make socketfd
-     * pollable so everything is all in one place
-     */
-    struct bar_backend *backend = bar->backend;
-
-    while (wl_display_prepare_read(backend->wl_display) != 0) {
-        if (wl_display_dispatch_pending(backend->wl_display) == -1) {
-            log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
-            goto err;
-        }
-    }
-
-    wl_display_flush(backend->wl_display);
-
     struct pollfd fds[] = {
-        { .fd = wl_display_get_fd(backend->wl_display), .events = POLLIN },
+        {.fd = wl_display_get_fd(backend->wl_display), .events = POLLIN},
     };
 
-    while (true) {
-        int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
-        if (ret == -1) {
-            log_err(__FILE__, __LINE__, "Failed to poll.");
+    int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
+    if (ret == -1) {
+        log_err(__FILE__, __LINE__, "Failed to poll.");
+        goto err;
+    }
+
+    if (fds[0].revents & POLLIN) {
+        if (wl_display_read_events(backend->wl_display) == -1) {
+            log_err(__FILE__, __LINE__, "Failed to read from wayland socket.");
             goto err;
         }
 
-        if (fds[0].revents & POLLIN) {
-            if (wl_display_read_events(backend->wl_display) == -1) {
-                log_err(__FILE__, __LINE__, "Failed to read from wayland socket.");
+        while (wl_display_prepare_read(backend->wl_display) != 0) {
+            if (wl_display_dispatch_pending(backend->wl_display) == -1) {
+                log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
                 goto err;
             }
-
-            while (wl_display_prepare_read(backend->wl_display) != 0) {
-                if (wl_display_dispatch_pending(backend->wl_display) == -1) {
-                    log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
-                    goto err;
-                }
-            }
-
-            wl_display_flush(backend->wl_display);
         }
+
+        wl_display_flush(backend->wl_display);
+
     }
 
-    wl_display_cancel_read(backend->wl_display);
     return true;
 err:
     wl_display_cancel_read(backend->wl_display);
@@ -652,17 +636,14 @@ bar_commit(struct bar *bar)
         pixman_image_composite(PIXMAN_OP_SRC, bar->pix, NULL, buf->pix, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
 
         wl_surface_attach(output->surface.wl_surface, buf->wl_buf, 0, 0);
-        wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, INT32_MAX, INT32_MAX);
+        wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, buf->width, buf->height);
         wl_surface_commit(output->surface.wl_surface);
-        wl_display_flush(backend->wl_display);
 
         buf->busy = true;
 
         swap_buffers(&output->rendering_buf, &output->pending_buf);
     }
-
-    wl_display_roundtrip(backend->wl_display);
-    wl_display_dispatch_pending(backend->wl_display);
+    wl_display_flush(backend->wl_display);
 
     return true;
 }
@@ -682,6 +663,8 @@ resize_buffers(struct bar *bar)
             out->pending_buf = create_buffer(out);
 
             bar_commit(bar);
+            /* Trigger buffer event *now* */
+            block_until_wl_event(backend);
 
             destroy_buffer(out->pending_buf);
             out->pending_buf = create_buffer(out);
@@ -690,39 +673,19 @@ resize_buffers(struct bar *bar)
             memset(out->pending_buf->map, 0, out->pending_buf->size);
 
             bar_commit(bar);
+            block_until_wl_event(backend);
 
             memset(out->pending_buf->map, 0, out->pending_buf->size);
         }
-        wl_display_flush(backend->wl_display);
         out->surface.height = bar->height;
         out->surface.width = bar->width;
 
         resize(cur->data);
     }
+    wl_display_flush(backend->wl_display);
 
     bar_commit(bar);
-
-    wl_display_flush(backend->wl_display);
-
-    return true;
-}
-
-bool
-process_wl_events(struct bar_backend *backend)
-{
-    if (wl_display_read_events(backend->wl_display) == -1) {
-        log_err(__FILE__, __LINE__, "Failed to read from wayland socket.");
-        return false;
-    }
-
-    while (wl_display_prepare_read(backend->wl_display) == -1) {
-        if (wl_display_dispatch_pending(backend->wl_display) == -1) {
-            log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
-            return false;
-        }
-    }
-
-    wl_display_flush(backend->wl_display);
+    block_until_wl_event(backend);
 
     return true;
 }

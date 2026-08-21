@@ -92,55 +92,61 @@ bar_loop(struct bar *bar)
 
     struct bar_backend *backend = bar->backend;
 
-    /*
     while (wl_display_prepare_read(backend->wl_display) != 0) {
         if (wl_display_dispatch_pending(backend->wl_display) == -1) {
             log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
-            goto err;
+            return;
         }
     }
 
-    wl_display_flush(backend->wl_display);*/
-    
-    wl_display_dispatch_pending(backend->wl_display);
+    wl_display_flush(backend->wl_display);
 
-    struct pollfd fds[] = {{.fd = wl_display_get_fd(backend->wl_display), .events = POLLIN},
-                           {.fd = bar->ipc->socket_fd, .events = POLLIN}};
+    struct pollfd fds[] = {{.fd = bar->ipc->socket_fd, .events = POLLIN},
+                           {.fd = wl_display_get_fd(backend->wl_display), .events = POLLIN}};
 
     while (check_sigint()) {
         int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
         if (ret == -1) {
             log_err(__FILE__, __LINE__, "Failed to poll.");
-            goto err;
+            return;
         }
 
         if (fds[0].revents & POLLIN) {
-            /*
-            if (!process_wl_events(backend))
-                goto err;*/
-        }
-
-        if (fds[1].revents & POLLIN) {
             if (!server_receive_msg(bar->ipc)) {
                 log_err(__FILE__, __LINE__, "Failed to receive message.");
-                goto err;
+                return;
             }
 
             if (!server_process_msg(bar)) {
                 log_err(__FILE__, __LINE__, "Failed to process message.");
-                goto err;
+                return;
             }
 
             if (!IPC_send_msg(bar->ipc)) {
                 log_err(__FILE__, __LINE__, "Failed to reply to message.");
-                goto err;
+                return;
             }
         }
-    }
 
+        if (fds[1].revents & POLLIN) {
+            if (wl_display_read_events(backend->wl_display) == -1) {
+                log_err(__FILE__, __LINE__, "Failed to read from wayland socket.");
+                goto err;
+            }
+
+            while (wl_display_prepare_read(backend->wl_display) != 0) {
+                if (wl_display_dispatch_pending(backend->wl_display) == -1) {
+                    log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
+                    goto err;
+                }
+            }
+
+            wl_display_flush(backend->wl_display);
+        }
+    }
 err:
     wl_display_cancel_read(backend->wl_display);
-} 
+}
 
 bool
 bar_refresh_bg_color(struct bar *bar)

@@ -56,6 +56,4 @@ void init_item_backend();
 
 bool resize_buffers(struct bar *bar);
 
-bool process_wl_events(struct bar_backend *backend);
-
 #endif
