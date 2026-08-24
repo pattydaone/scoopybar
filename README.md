@@ -32,8 +32,6 @@ keep these things in mind when reading, referencing (lol), and/or making suggest
 
 # TODO list
 
-- [ ] buffer release event isn't being sent on jay, but is on wlr and smithay... why?
-- [ ] Move wayland backend to its own thread (?)
 - [ ] Add colors and time stamps for log statements
 - [ ] Add ability to change bar settings on the fly
 - [ ] Add ability to query bar information
@@ -45,6 +43,9 @@ keep these things in mind when reading, referencing (lol), and/or making suggest
 # Putting off
 - [ ] Scale stuff properly
 - [ ] Fix margin not working on all sides
+
+# Not planned unless needed
+- [ ] Move wayland backend to its own thread (?)
 
 # Done
 
@@ -71,6 +72,7 @@ having a list of things ive completed helps keep me sane: no matter how bad thin
 - [X] Implement border
 - [X] Sending errors to the client.
 - [X] Fixed monitor specification
+- [X] buffer release event isn't being sent on jay, but is on wlr and smithay... why?
 # The design
 
 ## Configuration 

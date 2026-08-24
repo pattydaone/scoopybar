@@ -158,9 +158,14 @@ create_buffer(struct output *output)
 bool
 destroy_buffer(struct surface_buf *buf)
 {
-    pixman_image_unref(buf->pix);
-    wl_buffer_destroy(buf->wl_buf);
-    munmap(buf->map, buf->size);
+    if (buf == NULL)
+        return true;
+    if (buf->pix != NULL)
+        pixman_image_unref(buf->pix);
+    if (buf->wl_buf != NULL)
+        wl_buffer_destroy(buf->wl_buf);
+    if (buf->map != NULL)
+        munmap(buf->map, buf->size);
     free(buf);
     return true;
 }
@@ -392,6 +397,26 @@ static const struct wl_output_listener wl_output_listener = {.geometry = &wl_out
                                                              .name = &wl_output_name,
                                                              .description = &wl_output_description};
 
+void 
+output_destroy(struct output* out) {
+    if (out->output != NULL) {
+        wl_output_destroy(out->output);
+    }
+    if (out->name != NULL) {
+        free(out->name);
+    }
+    if (out->pending_buf != NULL)
+        destroy_buffer(out->pending_buf);
+    if (out->rendering_buf != NULL)
+        destroy_buffer(out->rendering_buf);
+    if (out->surface.layer_surface != NULL) {
+        zwlr_layer_surface_v1_destroy(out->surface.layer_surface);
+    }
+    if (out->surface.wl_surface != NULL) {
+        wl_surface_destroy(out->surface.wl_surface);
+    }
+    free(out);
+}
 // END: wl_output_listener code
 
 void
@@ -427,6 +452,7 @@ registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, cons
         check_version(interface, 4, version);
 
         struct output *out = malloc(sizeof(struct output));
+        memset(out, 0, sizeof(struct output));
         out->output = wl_registry_bind(wl_registry, name, &wl_output_interface, 4);
         log_dbg(__FILE__, __LINE__, 3, "Binded to wl_output.");
 
@@ -450,7 +476,6 @@ static const struct wl_registry_listener registry_listener
 struct bar_backend *
 init_bar_backend(struct bar *bar)
 {
-    printf("hellooooo");
     struct bar_backend *ret = malloc(sizeof(struct bar_backend));
 
     if (ret == NULL) {
@@ -505,12 +530,14 @@ init_bar_backend(struct bar *bar)
         if (cur->data->name == NULL) {
             struct output_node *tmp = cur;
             cur = cur->next;
+            output_destroy(tmp->data);
             LL_delete_output(&ret->outputs, tmp);
             continue;
         }
         if (valid_outputs != NULL && strstr(valid_outputs, cur->data->name) == NULL) {
             struct output_node *tmp = cur;
             cur = cur->next;
+            output_destroy(tmp->data);
             LL_delete_output(&ret->outputs, tmp);
             continue;
         }
@@ -541,23 +568,7 @@ destroy_bar_backend(struct bar_backend *backend)
     for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
         if (cur->data != NULL) {
             struct output *output = cur->data;
-            if (output->output != NULL) {
-                wl_output_destroy(output->output);
-            }
-            if (output->name != NULL) {
-                free(output->name);
-            }
-            if (output->pending_buf != NULL)
-                destroy_buffer(output->pending_buf);
-            if (output->rendering_buf != NULL)
-                destroy_buffer(output->rendering_buf);
-            if (output->surface.layer_surface != NULL) {
-                zwlr_layer_surface_v1_destroy(output->surface.layer_surface);
-            }
-            if (output->surface.wl_surface != NULL) {
-                wl_surface_destroy(output->surface.wl_surface);
-            }
-            free(output);
+            output_destroy(output);
         }
         if (to_free != NULL) {
             free(to_free);
