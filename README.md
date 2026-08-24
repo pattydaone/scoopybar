@@ -20,6 +20,11 @@ easily and without having to recompile the entire bar.
 I am taking great reference from "yambar" for the wayland backend, as this bar is implemented using wayland/wlr protocol as opposed to using an abstraction 
 (such as gtk). **Thus far** I have not taken any code from there.
 
+## **IMPORTANT NOTE**
+I am not an experienced developer, much less in c, much less in wayland, much less in projects of this scope. As such, I am certain much of the code here is 
+of very poor quality, try as I might. I'm doing this project mostly for fun and learning, which it has thus far proven effective at. Please 
+keep these things in mind when reading, referencing (lol), and/or making suggestions about this code.
+
 # To work on continuously
 
 - Error checking

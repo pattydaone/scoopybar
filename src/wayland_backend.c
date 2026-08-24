@@ -450,6 +450,7 @@ static const struct wl_registry_listener registry_listener
 struct bar_backend *
 init_bar_backend(struct bar *bar)
 {
+    printf("hellooooo");
     struct bar_backend *ret = malloc(sizeof(struct bar_backend));
 
     if (ret == NULL) {
@@ -588,33 +589,34 @@ destroy_bar_backend(struct bar_backend *backend)
 }
 
 bool /* This is so shit */
-block_until_wl_event(struct bar_backend *backend)
+block_until_wl_event(struct bar_backend *backend, struct surface_buf *buf)
 {
-    struct pollfd fds[] = {
-        {.fd = wl_display_get_fd(backend->wl_display), .events = POLLIN},
-    };
+    while (buf->busy) {
+        struct pollfd fds[] = {
+            {.fd = wl_display_get_fd(backend->wl_display), .events = POLLIN},
+        };
 
-    int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
-    if (ret == -1) {
-        log_err(__FILE__, __LINE__, "Failed to poll.");
-        goto err;
-    }
-
-    if (fds[0].revents & POLLIN) {
-        if (wl_display_read_events(backend->wl_display) == -1) {
-            log_err(__FILE__, __LINE__, "Failed to read from wayland socket.");
+        int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), 0);
+        if (ret == -1) {
+            log_err(__FILE__, __LINE__, "Failed to poll.");
             goto err;
         }
 
-        while (wl_display_prepare_read(backend->wl_display) != 0) {
-            if (wl_display_dispatch_pending(backend->wl_display) == -1) {
-                log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
+        if (fds[0].revents & POLLIN) {
+            if (wl_display_read_events(backend->wl_display) == -1) {
+                log_err(__FILE__, __LINE__, "Failed to read from wayland socket.");
                 goto err;
             }
+
+            while (wl_display_prepare_read(backend->wl_display) != 0) {
+                if (wl_display_dispatch_pending(backend->wl_display) == -1) {
+                    log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
+                    goto err;
+                }
+            }
+
+            wl_display_flush(backend->wl_display);
         }
-
-        wl_display_flush(backend->wl_display);
-
     }
 
     return true;
@@ -664,7 +666,7 @@ resize_buffers(struct bar *bar)
 
             bar_commit(bar);
             /* Trigger buffer event *now* */
-            block_until_wl_event(backend);
+            block_until_wl_event(backend, out->pending_buf);
 
             destroy_buffer(out->pending_buf);
             out->pending_buf = create_buffer(out);
@@ -673,7 +675,7 @@ resize_buffers(struct bar *bar)
             memset(out->pending_buf->map, 0, out->pending_buf->size);
 
             bar_commit(bar);
-            block_until_wl_event(backend);
+            block_until_wl_event(backend, out->pending_buf);
 
             memset(out->pending_buf->map, 0, out->pending_buf->size);
         }
@@ -685,7 +687,9 @@ resize_buffers(struct bar *bar)
     wl_display_flush(backend->wl_display);
 
     bar_commit(bar);
-    block_until_wl_event(backend);
+    for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
+        block_until_wl_event(backend, cur->data->pending_buf);
+    }
 
     return true;
 }
