@@ -12,6 +12,6 @@ struct output_node {
 
 void LL_push_back_output(struct output_node **head, struct output *data);
 
-void  LL_delete_output(struct output_node **head, struct output_node *data);
+void LL_delete_output(struct output_node **head, struct output_node *data);
 
 #endif

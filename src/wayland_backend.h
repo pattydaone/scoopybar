@@ -10,7 +10,7 @@
 #include <stdint.h>
 
 struct output {
-    struct wl_output *output;
+    struct wl_output *wl_output;
     uint32_t width;
     uint32_t height;
     uint32_t scale;

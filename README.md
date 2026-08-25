@@ -32,6 +32,7 @@ keep these things in mind when reading, referencing (lol), and/or making suggest
 
 # TODO list
 
+- [ ] Make linked list a tad more featureful (most importantly, foreach macro)
 - [ ] Add colors and time stamps for log statements
 - [ ] Add ability to change bar settings on the fly
 - [ ] Add ability to query bar information
@@ -58,7 +59,7 @@ having a list of things ive completed helps keep me sane: no matter how bad thin
 - [X] .ini file parser
 - [X] Figure out how I intend to attach buffers (using pixman)
 - [X] Add double buffering with two separate buffers
-- [X] Add wl\_callbacks to handle rendering those buffers
+- [X] ~~Add wl\_callbacks to handle rendering those buffers~~
 - [X] Figure out how to actually write to those buffers via pixman
 - [X] Have bar follow workspace changes
 - [X] Configuration for bar

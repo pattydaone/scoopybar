@@ -84,6 +84,8 @@ allocate_shm_file(size_t size)
 }
 // To here
 
+/* Start buffer code */
+
 static void
 wl_buffer_release(void *data, struct wl_buffer *)
 {
@@ -155,11 +157,11 @@ create_buffer(struct output *output)
     return buf;
 }
 
-bool
+void
 destroy_buffer(struct surface_buf *buf)
 {
     if (buf == NULL)
-        return true;
+        return;
     if (buf->pix != NULL)
         pixman_image_unref(buf->pix);
     if (buf->wl_buf != NULL)
@@ -167,7 +169,6 @@ destroy_buffer(struct surface_buf *buf)
     if (buf->map != NULL)
         munmap(buf->map, buf->size);
     free(buf);
-    return true;
 }
 
 void
@@ -177,6 +178,8 @@ swap_buffers(struct surface_buf **buf_a, struct surface_buf **buf_b)
     *buf_a = *buf_b;
     *buf_b = tmp;
 }
+
+/* End buffer code */
 
 static bool
 resize(struct output *output)
@@ -197,7 +200,7 @@ resize(struct output *output)
     return true;
 }
 
-// START: wlr_surface_listener code
+/* Start surface code */
 
 static void
 zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t serial, uint32_t width,
@@ -230,8 +233,6 @@ zwlr_surface_closed(void *, struct zwlr_layer_surface_v1 *)
 
 static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener
     = {.configure = &zwlr_surface_configure, .closed = &zwlr_surface_closed};
-
-// END: wlr_surface_listener code
 
 static bool
 create_surface(struct output *output)
@@ -278,7 +279,7 @@ create_surface(struct output *output)
     }
 
     output->surface.layer_surface = zwlr_layer_shell_v1_get_layer_surface(
-        bar->zwlr_layer_shell, output->surface.wl_surface, output->output, layer, "panel");
+        bar->zwlr_layer_shell, output->surface.wl_surface, output->wl_output, layer, "panel");
 
     if (output->surface.layer_surface == NULL) {
         log_err(__FILE__, __LINE__, "Failed to create layer_surface for output %s", output->name);
@@ -344,7 +345,9 @@ err:
     return false;
 }
 
-// START: wl_output_listener code
+/* End surface code */
+
+/* Start output code */
 
 static void
 wl_output_geometry(void *data, struct wl_output *, int, int, int, int,
@@ -387,7 +390,7 @@ wl_output_done(void *data, struct wl_output *)
 static void
 wl_output_description(void *, struct wl_output *, const char *)
 {
-    // No neeed
+    /* No neeed */
 }
 
 static const struct wl_output_listener wl_output_listener = {.geometry = &wl_output_geometry,
@@ -397,10 +400,11 @@ static const struct wl_output_listener wl_output_listener = {.geometry = &wl_out
                                                              .name = &wl_output_name,
                                                              .description = &wl_output_description};
 
-void 
-output_destroy(struct output* out) {
-    if (out->output != NULL) {
-        wl_output_destroy(out->output);
+void
+output_destroy(struct output *out)
+{
+    if (out->wl_output != NULL) {
+        wl_output_destroy(out->wl_output);
     }
     if (out->name != NULL) {
         free(out->name);
@@ -417,7 +421,10 @@ output_destroy(struct output* out) {
     }
     free(out);
 }
-// END: wl_output_listener code
+
+/* End output code */
+
+/* Start registry code */
 
 void
 check_version(const char *interface, uint32_t required, uint32_t actual)
@@ -453,12 +460,12 @@ registry_global(void *data, struct wl_registry *wl_registry, uint32_t name, cons
 
         struct output *out = malloc(sizeof(struct output));
         memset(out, 0, sizeof(struct output));
-        out->output = wl_registry_bind(wl_registry, name, &wl_output_interface, 4);
+        out->wl_output = wl_registry_bind(wl_registry, name, &wl_output_interface, 4);
         log_dbg(__FILE__, __LINE__, 3, "Binded to wl_output.");
 
         out->backend = bar;
 
-        wl_output_add_listener(out->output, &wl_output_listener, out);
+        wl_output_add_listener(out->wl_output, &wl_output_listener, out);
         log_dbg(__FILE__, __LINE__, 3, "Added wl_output listener.");
 
         LL_push_back_output(&bar->outputs, out);
@@ -472,6 +479,8 @@ registry_global_remove(void *, struct wl_registry *, uint32_t)
 
 static const struct wl_registry_listener registry_listener
     = {.global = &registry_global, .global_remove = &registry_global_remove};
+
+/* End registry code */
 
 struct bar_backend *
 init_bar_backend(struct bar *bar)
@@ -567,8 +576,8 @@ destroy_bar_backend(struct bar_backend *backend)
     struct output_node *to_free = NULL;
     for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
         if (cur->data != NULL) {
-            struct output *output = cur->data;
-            output_destroy(output);
+            struct output *out = cur->data;
+            output_destroy(out);
         }
         if (to_free != NULL) {
             free(to_free);
@@ -600,7 +609,7 @@ destroy_bar_backend(struct bar_backend *backend)
 }
 
 bool /* This is so shit */
-block_until_wl_event(struct bar_backend *backend, struct surface_buf *buf)
+block_until_buf_release(struct bar_backend *backend, struct surface_buf *buf)
 {
     while (buf->busy) {
         struct pollfd fds[] = {
@@ -641,20 +650,20 @@ bar_commit(struct bar *bar)
 {
     struct bar_backend *backend = bar->backend;
     for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
-        struct output *output = cur->data;
-        struct surface_buf *buf = output->pending_buf;
+        struct output *out = cur->data;
+        struct surface_buf *buf = out->pending_buf;
         assert(buf->busy == false);
         assert(buf->pix != NULL);
 
         pixman_image_composite(PIXMAN_OP_SRC, bar->pix, NULL, buf->pix, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
 
-        wl_surface_attach(output->surface.wl_surface, buf->wl_buf, 0, 0);
-        wl_surface_damage_buffer(output->surface.wl_surface, 0, 0, buf->width, buf->height);
-        wl_surface_commit(output->surface.wl_surface);
+        wl_surface_attach(out->surface.wl_surface, buf->wl_buf, 0, 0);
+        wl_surface_damage_buffer(out->surface.wl_surface, 0, 0, buf->width, buf->height);
+        wl_surface_commit(out->surface.wl_surface);
 
         buf->busy = true;
 
-        swap_buffers(&output->rendering_buf, &output->pending_buf);
+        swap_buffers(&out->rendering_buf, &out->pending_buf);
     }
     wl_display_flush(backend->wl_display);
 
@@ -676,8 +685,7 @@ resize_buffers(struct bar *bar)
             out->pending_buf = create_buffer(out);
 
             bar_commit(bar);
-            /* Trigger buffer event *now* */
-            block_until_wl_event(backend, out->pending_buf);
+            block_until_buf_release(backend, out->pending_buf);
 
             destroy_buffer(out->pending_buf);
             out->pending_buf = create_buffer(out);
@@ -686,7 +694,7 @@ resize_buffers(struct bar *bar)
             memset(out->pending_buf->map, 0, out->pending_buf->size);
 
             bar_commit(bar);
-            block_until_wl_event(backend, out->pending_buf);
+            block_until_buf_release(backend, out->pending_buf);
 
             memset(out->pending_buf->map, 0, out->pending_buf->size);
         }
@@ -699,7 +707,7 @@ resize_buffers(struct bar *bar)
 
     bar_commit(bar);
     for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
-        block_until_wl_event(backend, cur->data->pending_buf);
+        block_until_buf_release(backend, cur->data->pending_buf);
     }
 
     return true;
