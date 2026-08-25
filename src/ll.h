@@ -5,6 +5,9 @@
 
 #include "wayland_backend.h"
 
+#define ll_foreach(node, cur) \
+    for (__typeof__(node) cur = node; cur != NULL; cur = cur->next)
+
 struct output_node {
     struct output *data;
     struct output_node *next;

@@ -32,7 +32,6 @@ keep these things in mind when reading, referencing (lol), and/or making suggest
 
 # TODO list
 
-- [ ] Make linked list a tad more featureful (most importantly, foreach macro)
 - [ ] Add colors and time stamps for log statements
 - [ ] Add ability to change bar settings on the fly
 - [ ] Add ability to query bar information
@@ -74,6 +73,7 @@ having a list of things ive completed helps keep me sane: no matter how bad thin
 - [X] Sending errors to the client.
 - [X] Fixed monitor specification
 - [X] buffer release event isn't being sent on jay, but is on wlr and smithay... why?
+- [X] Make linked list a tad more featureful (most importantly, foreach macro)
 # The design
 
 ## Configuration 

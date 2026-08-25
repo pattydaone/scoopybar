@@ -6,8 +6,8 @@
 
 #include <assert.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/poll.h>
+#include <unistd.h>
 
 #include "wayland_backend.h"
 
@@ -40,11 +40,12 @@ init_bar(struct ConfParser *p)
     IPC_socket_init(bar_ipc, SERVER);
     ret->ipc = bar_ipc;
     /* TODO: if the bar resizes, the size of this object will have to change,
-     * how should I deal with this? 
-     * NOTE: this object is created *after* the configuration event is sent 
+     * how should I deal with this?
+     * NOTE: this object is created *after* the configuration event is sent
      * and therefore the only problematic resize would be by the user at runtime
      */
-    ret->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, ret->width, ret->height, NULL, ret->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
+    ret->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, ret->width, ret->height, NULL,
+                                                 ret->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
 
     return ret;
 }
@@ -162,7 +163,7 @@ bar_refresh_bg_color(struct bar *bar)
     return true;
 }
 
-bool 
+bool
 bar_refresh_opacity(struct bar *bar)
 {
     bar->background_color.alpha = bar->opacity;
@@ -276,7 +277,8 @@ bar_refresh_position(struct bar *bar)
         break;
     }
 
-    for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
+    ll_foreach(backend->outputs, cur)
+    {
         struct output *out = cur->data;
         zwlr_layer_surface_v1_set_anchor(out->surface.layer_surface, location);
     }
@@ -288,16 +290,26 @@ bool
 bar_refresh_margin(struct bar *bar)
 {
     int margin = bar->margin;
+    struct bar_backend *backend = bar->backend;
 
-    for (struct output_node *cur = bar->backend->outputs; cur != NULL; cur = cur->next) {
+    ll_foreach(backend->outputs, cur)
+    {
         struct output *output = cur->data;
         zwlr_layer_surface_v1_set_margin(output->surface.layer_surface, margin, margin, margin, margin);
     }
     /* Trigger configure event to get bar's new size */
     bar_commit(bar);
-    /* TODO: Can't do this because of the prepare_read... 
-     * should I cancel ? */
+
+    /* TODO: think of a better way than this dogshit. */
+    wl_display_cancel_read(backend->wl_display);
     wl_display_roundtrip(bar->backend->wl_display);
+    while (wl_display_prepare_read(backend->wl_display) != 0) {
+        if (wl_display_dispatch_pending(backend->wl_display) == -1) {
+            log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
+            return false;
+        }
+    }
+    wl_display_flush(backend->wl_display);
 
     return bar_refresh_height(bar) && bar_refresh_width(bar);
 }

@@ -574,7 +574,8 @@ void
 destroy_bar_backend(struct bar_backend *backend)
 {
     struct output_node *to_free = NULL;
-    for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
+    ll_foreach(backend->outputs, cur)
+    {
         if (cur->data != NULL) {
             struct output *out = cur->data;
             output_destroy(out);
@@ -649,7 +650,8 @@ bool
 bar_commit(struct bar *bar)
 {
     struct bar_backend *backend = bar->backend;
-    for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
+    ll_foreach(backend->outputs, cur)
+    {
         struct output *out = cur->data;
         struct surface_buf *buf = out->pending_buf;
         assert(buf->busy == false);
@@ -678,7 +680,8 @@ resize_buffers(struct bar *bar)
     backend->height = bar->height;
     backend->width = bar->width;
 
-    for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
+    ll_foreach(backend->outputs, cur)
+    {
         struct output *out = cur->data;
         if (bar->height > out->pending_buf->height || bar->width > out->pending_buf->width) {
             destroy_buffer(out->pending_buf);
@@ -706,7 +709,9 @@ resize_buffers(struct bar *bar)
     wl_display_flush(backend->wl_display);
 
     bar_commit(bar);
-    for (struct output_node *cur = backend->outputs; cur != NULL; cur = cur->next) {
+
+    ll_foreach(backend->outputs, cur) 
+    {
         block_until_buf_release(backend, cur->data->pending_buf);
     }
 

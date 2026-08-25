@@ -82,7 +82,12 @@ run_client(char type, int argc, char **argv)
     int s;
     struct pollfd fd[] = {{ .fd = ipc->socket_fd, .events = POLLIN }};
     for (s = 0; s < 20; ++s) {
-        if (poll(fd, sizeof(fd)/sizeof(fd[0]), 5) == -1) {
+        /* Blocks until it receives SUCCESS message... scary...
+         * but it seems if I don't do this sometimes I'll reach 
+         * the timeout before the bar is able to respond, which 
+         * causes the bar to crash as well....
+         */
+        if (poll(fd, sizeof(fd)/sizeof(fd[0]), -1) == -1) {
             log_err(__FILE__, __LINE__, "Failed to poll.");
             goto out;
         }
@@ -90,7 +95,11 @@ run_client(char type, int argc, char **argv)
         if (fd[0].revents & POLLIN) {
             if (!client_receive_msg(ipc)) 
                 goto out;
-            break;
+            if (strcmp(ipc->msg, "SUCCESS") == 0) {
+                IPC_socket_destroy(ipc, CLIENT);
+                return true;
+            }
+            fprintf(stderr, "%s\n", ipc->msg);
         }
     }
 
@@ -98,15 +107,6 @@ run_client(char type, int argc, char **argv)
         log_err(__FILE__, __LINE__, "Bar didn't return message.");
         goto out;
     }
-
-    if (strcmp(ipc->msg, "SUCCESS") == 0) {
-        IPC_socket_destroy(ipc, CLIENT);
-        return true;
-    }
-
-    fprintf(stderr, "%s\n", ipc->msg);
-
-    return false;
 
 out:
     IPC_socket_destroy(ipc, CLIENT);
