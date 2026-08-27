@@ -3,6 +3,7 @@
 #include "ipc.h"
 #include "ll.h"
 #include "utils/log.h"
+#include "utils/misc.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -11,7 +12,7 @@
 
 #include "wayland_backend.h"
 
-volatile sig_atomic_t g_sig;
+// volatile sig_atomic_t g_sig;
 
 struct bar *
 init_bar(struct ConfParser *p)
@@ -39,11 +40,6 @@ init_bar(struct ConfParser *p)
 
     IPC_socket_init(bar_ipc, SERVER);
     ret->ipc = bar_ipc;
-    /* TODO: if the bar resizes, the size of this object will have to change,
-     * how should I deal with this?
-     * NOTE: this object is created *after* the configuration event is sent
-     * and therefore the only problematic resize would be by the user at runtime
-     */
     ret->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, ret->width, ret->height, NULL,
                                                  ret->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
 
@@ -67,20 +63,6 @@ bar_destroy(struct bar *bar)
         pixman_image_unref(bar->pix);
 
     free(bar);
-}
-
-/* TODO: move this to a utils file or smth. it doesnt need to be here. */
-bool
-check_sigint()
-{
-    if (g_sig == SIGTERM)
-        return false;
-    if (g_sig == SIGINT)
-        return false;
-    if (g_sig == SIGABRT)
-        return false;
-
-    return true;
 }
 
 void
@@ -297,19 +279,10 @@ bar_refresh_margin(struct bar *bar)
         struct output *output = cur->data;
         zwlr_layer_surface_v1_set_margin(output->surface.layer_surface, margin, margin, margin, margin);
     }
+
     /* Trigger configure event to get bar's new size */
     bar_commit(bar);
-
-    /* TODO: think of a better way than this dogshit. */
-    wl_display_cancel_read(backend->wl_display);
-    wl_display_roundtrip(bar->backend->wl_display);
-    while (wl_display_prepare_read(backend->wl_display) != 0) {
-        if (wl_display_dispatch_pending(backend->wl_display) == -1) {
-            log_err(__FILE__, __LINE__, "Failed to dispatch pending wayland events.");
-            return false;
-        }
-    }
-    wl_display_flush(backend->wl_display);
+    my_round_trip(backend->wl_display);
 
     return bar_refresh_height(bar) && bar_refresh_width(bar);
 }

@@ -52,8 +52,6 @@ void destroy_bar_backend(struct bar_backend *backend);
 
 bool bar_commit(struct bar *bar);
 
-void init_item_backend();
-
 bool resize_buffers(struct bar *bar);
 
 #endif

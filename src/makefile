@@ -1,8 +1,8 @@
 src_files := main.c wayland_backend.c bar.c ll.c config.c ipc.c
 src_objs  := main.o wayland_backend.o bar.o ll.o config.o ipc.o
 
-util_files := ../utils/config_parser.c ../utils/log.c
-util_objs  :=          config_parser.o          log.o
+util_files := ../utils/config_parser.c ../utils/log.c ../utils/misc.c
+util_objs  :=          config_parser.o          log.o          misc.o
 
 include_files := ../include/wlr-layer-shell-unstable-v1.c ../include/xdg-output-unstable-v1.c ../include/xdg-shell-protocol.c
 include_objs  :=            wlr-layer-shell-unstable-v1.o            xdg-output-unstable-v1.o            xdg-shell-protocol.o
