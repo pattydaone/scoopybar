@@ -1,8 +1,8 @@
-src_files := main.c wayland_backend.c bar.c ll.c config.c ipc.c
-src_objs  := main.o wayland_backend.o bar.o ll.o config.o ipc.o
+src_files := main.c wayland_backend.c bar.c config.c ipc.c message_handler.c
+src_objs  := main.o wayland_backend.o bar.o config.o ipc.o message_handler.o
 
-util_files := ../utils/config_parser.c ../utils/log.c ../utils/misc.c
-util_objs  :=          config_parser.o          log.o          misc.o
+util_files := ../utils/config_parser.c ../utils/log.c ../utils/misc.c ../utils/ll.c
+util_objs  :=          config_parser.o          log.o          misc.o          ll.o
 
 include_files := ../include/wlr-layer-shell-unstable-v1.c ../include/xdg-output-unstable-v1.c ../include/xdg-shell-protocol.c
 include_objs  :=            wlr-layer-shell-unstable-v1.o            xdg-output-unstable-v1.o            xdg-shell-protocol.o
@@ -10,8 +10,8 @@ include_objs  :=            wlr-layer-shell-unstable-v1.o            xdg-output-
 files := $(src_files) $(util_files) $(include_files)
 objs  := $(src_objs)  $(util_objs)  $(include_objs)
 
-includes := -I ../include/ -I /usr/include/pixman-1/ -I ..
-libs := -lwayland-client -lm -lrt -lpixman-1 # TODO: replace with pkg-config invokations
+includes := -I../include/ $(shell pkg-config --cflags pixman-1) -I..
+libs := $(shell pkg-config --libs wayland-client) $(shell pkg-config --libs pixman-1) -lrt
 
 debug_opts := -O0 -Wall -Wextra -Wpedantic -Werror -g -fsanitize=address
 
@@ -26,7 +26,7 @@ build_debug: $(files)
 	gcc $(objs) -fsanitize=address -o ../bin/main $(libs)
 
 build_release:
-	gcc --std=c2x -O2 $(includes) -c $(files)
+	gcc -std=gnu23 -O2 $(includes) -c $(files)
 	gcc $(objs) -o ../bin/main $(libs)
 
 clean:

@@ -30,6 +30,4 @@ bool client_receive_msg(struct bar_ipc *server);
 
 bool IPC_send_msg(struct bar_ipc *client);
 
-bool server_process_msg(struct bar *bar);
-
 #endif

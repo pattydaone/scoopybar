@@ -1,7 +1,9 @@
 #include "bar.h"
+
 #include "config.h"
 #include "ipc.h"
-#include "ll.h"
+#include "message_handler.h"
+#include "utils/ll.h"
 #include "utils/log.h"
 #include "utils/misc.h"
 
@@ -11,8 +13,6 @@
 #include <unistd.h>
 
 #include "wayland_backend.h"
-
-// volatile sig_atomic_t g_sig;
 
 struct bar *
 init_bar(struct ConfParser *p)
@@ -100,7 +100,7 @@ bar_loop(struct bar *bar)
                 return;
             }
 
-            if (!server_process_msg(bar)) {
+            if (!process_msg(bar)) {
                 log_err(__FILE__, __LINE__, "Failed to process message.");
                 return;
             }

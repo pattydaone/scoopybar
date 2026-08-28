@@ -3,7 +3,7 @@
 
 #include "include/xdg-output-unstable-v1.h"
 
-#include "wayland_backend.h"
+#include "../src/wayland_backend.h"
 
 #define ll_foreach(node, cur) \
     for (__typeof__(node) cur = node; cur != NULL; cur = cur->next)
