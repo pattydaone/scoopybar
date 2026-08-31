@@ -2,6 +2,7 @@
 
 #include "ipc.h"
 #include "config.h"
+#include "utils/log.h"
 
 char *
 extract_kv(struct bar_ipc *ipc, char *key, char *value)
@@ -77,8 +78,131 @@ m_find_by_key(struct bar *bar, char *key, char *value)
 }
 
 void
-process_message()
+send_all(struct bar *bar)
 {
+    int written = 0;
+    struct bar_ipc *ipc = bar->ipc;
+    char to_write[1024];
+    int intermediate_written = 0;
+    written += snprintf(ipc->msg, 1024 - written, "{\n\t");
+
+    intermediate_written = snprintf(to_write, 1024, "\t\"height\": %d,\n", bar->height);
+    if (intermediate_written > 1024 - written) {
+        IPC_send_msg(ipc);
+        written = 0;
+    }
+    stpncpy(ipc->msg + written, to_write, intermediate_written);
+    written += intermediate_written;
+
+    intermediate_written = snprintf(to_write, 1024 - written, "\t\"width\": %d,\n", bar->width);
+    if (intermediate_written > 1024 - written) {
+        IPC_send_msg(ipc);
+        written = 0;
+    }
+    strncpy(ipc->msg + written, to_write, intermediate_written);
+    written += intermediate_written;
+
+    intermediate_written = snprintf(to_write, 1024 - written, "\t\"opacity\": %f,\n", bar->opacity / 65536.0);
+    if (intermediate_written > 1024 - written) {
+        IPC_send_msg(ipc);
+        written = 0;
+    }
+    strncpy(ipc->msg + written, to_write, intermediate_written);
+    written += intermediate_written;
+
+    intermediate_written = snprintf(to_write, 1024 - written, "\t\"color\": \"%d,%d,%d\",\n", bar->background_color.red,
+                        bar->background_color.green, bar->background_color.blue);
+    if (intermediate_written > 1024 - written) {
+        IPC_send_msg(ipc);
+        written = 0;
+    }
+    strncpy(ipc->msg + written, to_write, intermediate_written);
+    written += intermediate_written;
+
+    intermediate_written = snprintf(to_write, 1024 - written, "\t\"margin\": %d,\n", bar->margin);
+    if (intermediate_written > 1024 - written) {
+        IPC_send_msg(ipc);
+        written = 0;
+    }
+    strncpy(ipc->msg + written, to_write, intermediate_written);
+    written += intermediate_written;
+
+    intermediate_written = snprintf(to_write, 1024 - written, "\t\"border_width\": %d,\n", bar->border.width);
+    if (intermediate_written > 1024 - written) {
+        IPC_send_msg(ipc);
+        written = 0;
+    }
+    strncpy(ipc->msg + written, to_write, intermediate_written);
+    written += intermediate_written;
+
+    intermediate_written = snprintf(to_write, 1024 - written, "\t\"displays\": \"%s\",\n",
+                        (bar->displays == NULL ? "all" : bar->displays));
+    if (intermediate_written > 1024 - written) {
+        IPC_send_msg(ipc);
+        written = 0;
+    }
+    strncpy(ipc->msg + written, to_write, intermediate_written);
+    written += intermediate_written;
+
+
+    switch (bar->pos) {
+    case (BAR_TOP):
+        intermediate_written = snprintf(to_write, 1024, "\t\"position\": \"top\",\n");
+    case (BAR_BOTTOM):
+        intermediate_written = snprintf(to_write, 1024, "\t\"position\": \"bottom\",\n");
+    case (BAR_LEFT):
+        intermediate_written = snprintf(to_write, 1024, "\t\"position\": \"left\",\n");
+    case (BAR_RIGHT):
+        intermediate_written = snprintf(to_write, 1024, "\t\"position\": \"right\",\n");
+    }
+    if (intermediate_written > 1024 - written) {
+        IPC_send_msg(ipc);
+        written = 0;
+    }
+    strncpy(ipc->msg + written, to_write, intermediate_written);
+    written += intermediate_written;
+
+    switch (bar->layer) {
+    case (BAR_LAYER_BACKGROUND):
+        intermediate_written = snprintf(to_write, 1024, "\t\"layer\": \"background\"\n");
+    case (BAR_LAYER_BOTTOM):
+        intermediate_written = snprintf(to_write, 1024, "\t\"layer\": \"bottom\"\n");
+    case (BAR_LAYER_TOP):
+        intermediate_written = snprintf(to_write, 1024, "\t\"layer\": \"top\"\n");
+    case (BAR_LAYER_OVERLAY):
+        intermediate_written = snprintf(to_write, 1024, "\t\"layer\": \"overlay\"\n");
+    }
+    if (intermediate_written > 1024 - written) {
+        IPC_send_msg(ipc);
+        written = 0;
+    }
+    strncpy(ipc->msg + written, to_write, intermediate_written);
+    written += intermediate_written;
+
+    intermediate_written += snprintf(to_write, 1024, "}");
+    if (intermediate_written > 1024 - written) {
+        IPC_send_msg(ipc);
+        written = 0;
+    }
+    strncpy(ipc->msg + written, to_write, intermediate_written);
+    written += intermediate_written;
+
+    IPC_send_msg(ipc);
+}
+
+bool
+process_query(struct bar *bar)
+{
+    char *msg = bar->ipc->msg;
+    for (; msg[0] != '.' && msg[0] != '\0'; ++msg)
+        ;
+
+    if (msg[0] == '\0') {
+        /* Send all */
+    }
+
+
+    return true;
 }
 
 bool
@@ -89,15 +213,24 @@ process_msg(struct bar *bar)
     char key[512];
     char value[512];
 
-    while ((msgs = extract_kv(bar->ipc, key, value)) != NULL && msgs[0] != '\0')
-        if (type == 'm' && m_find_by_key(bar, key, value))
+    if (type == 'm') {
+        while ((msgs = extract_kv(bar->ipc, key, value)) != NULL && msgs[0] != '\0')
+            if (m_find_by_key(bar, key, value))
+                return false;
+
+        if (msgs == NULL)
             return false;
 
-    if (msgs == NULL)
-        return false;
+        if (!m_find_by_key(bar, key, value))
+            return false;
+    }
+    else if (type == 'q') {
 
-    if (type == 'm' && !m_find_by_key(bar, key, value))
+    }
+    else {
+        log_client_err(bar->ipc, __FILE__, __LINE__, "Unknown message type.");
         return false;
+    }
 
     bar->ipc->msg_bytes = snprintf(bar->ipc->msg, 1024, "SUCCESS");
 
