@@ -77,115 +77,176 @@ m_find_by_key(struct bar *bar, char *key, char *value)
     return true;
 }
 
-void
-send_all(struct bar *bar)
-{
-    int written = 0;
-    struct bar_ipc *ipc = bar->ipc;
+int write_bar_height(struct bar *bar) {
     char to_write[1024];
-    int intermediate_written = 0;
-    written += snprintf(ipc->msg, 1024 - written, "{\n\t");
-
-    intermediate_written = snprintf(to_write, 1024, "\t\"height\": %d,\n", bar->height);
-    if (intermediate_written > 1024 - written) {
-        IPC_send_msg(ipc);
-        written = 0;
+    int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\t\"height\": %d,\n", bar->height);
+    if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
+        IPC_send_msg(bar->ipc);
+        bar->ipc->msg_bytes = 0;
     }
-    stpncpy(ipc->msg + written, to_write, intermediate_written);
-    written += intermediate_written;
+    stpncpy(bar->ipc->msg + bar->ipc->msg_bytes, to_write, intermediate_written);
 
-    intermediate_written = snprintf(to_write, 1024 - written, "\t\"width\": %d,\n", bar->width);
-    if (intermediate_written > 1024 - written) {
-        IPC_send_msg(ipc);
-        written = 0;
+    return intermediate_written;
+}
+
+int write_bar_width(struct bar *bar) {
+    char to_write[1024];
+    int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\t\"width\": %d,\n", bar->width);
+    if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
+        IPC_send_msg(bar->ipc);
+        bar->ipc->msg_bytes = 0;
     }
-    strncpy(ipc->msg + written, to_write, intermediate_written);
-    written += intermediate_written;
+    strncpy(bar->ipc->msg + bar->ipc->msg_bytes, to_write, intermediate_written);
 
-    intermediate_written = snprintf(to_write, 1024 - written, "\t\"opacity\": %f,\n", bar->opacity / 65536.0);
-    if (intermediate_written > 1024 - written) {
-        IPC_send_msg(ipc);
-        written = 0;
+    return intermediate_written;
+}
+
+int write_bar_opacity(struct bar *bar) {
+    char to_write[1024];
+    int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\t\"opacity\": %f,\n", bar->opacity / 65536.0);
+    if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
+        IPC_send_msg(bar->ipc);
+        bar->ipc->msg_bytes = 0;
     }
-    strncpy(ipc->msg + written, to_write, intermediate_written);
-    written += intermediate_written;
+    strncpy(bar->ipc->msg + bar->ipc->msg_bytes, to_write, intermediate_written);
 
-    intermediate_written = snprintf(to_write, 1024 - written, "\t\"color\": \"%d,%d,%d\",\n", bar->background_color.red,
+    return intermediate_written;
+}
+
+int write_bar_color(struct bar *bar) {
+    char to_write[1024];
+    int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\t\"color\": \"%d,%d,%d\",\n", bar->background_color.red,
                         bar->background_color.green, bar->background_color.blue);
-    if (intermediate_written > 1024 - written) {
-        IPC_send_msg(ipc);
-        written = 0;
+    if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
+        IPC_send_msg(bar->ipc);
+        bar->ipc->msg_bytes = 0;
     }
-    strncpy(ipc->msg + written, to_write, intermediate_written);
-    written += intermediate_written;
+    strncpy(bar->ipc->msg + bar->ipc->msg_bytes, to_write, intermediate_written);
 
-    intermediate_written = snprintf(to_write, 1024 - written, "\t\"margin\": %d,\n", bar->margin);
-    if (intermediate_written > 1024 - written) {
-        IPC_send_msg(ipc);
-        written = 0;
+    return intermediate_written;
+}
+
+int write_bar_margin(struct bar *bar) {
+    char to_write[1024];
+    int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\t\"margin\": %d,\n", bar->margin);
+    if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
+        IPC_send_msg(bar->ipc);
+        bar->ipc->msg_bytes = 0;
     }
-    strncpy(ipc->msg + written, to_write, intermediate_written);
-    written += intermediate_written;
+    strncpy(bar->ipc->msg + bar->ipc->msg_bytes, to_write, intermediate_written);
 
-    intermediate_written = snprintf(to_write, 1024 - written, "\t\"border_width\": %d,\n", bar->border.width);
-    if (intermediate_written > 1024 - written) {
-        IPC_send_msg(ipc);
-        written = 0;
+    return intermediate_written;
+}
+
+int write_bar_border(struct bar *bar) {
+    char to_write[1024];
+    int intermediate_written
+        = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\t\"border\": {\n\t\t\"width\": %d,\n\t\t\"color\": \"%d,%d,%d\"\n\t},\n",
+                   bar->border.width, bar->border.color.red, bar->border.color.green, bar->border.color.blue);
+    if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
+        IPC_send_msg(bar->ipc);
+        bar->ipc->msg_bytes = 0;
     }
-    strncpy(ipc->msg + written, to_write, intermediate_written);
-    written += intermediate_written;
+    strncpy(bar->ipc->msg + bar->ipc->msg_bytes, to_write, intermediate_written);
 
-    intermediate_written = snprintf(to_write, 1024 - written, "\t\"displays\": \"%s\",\n",
+    return intermediate_written;
+}
+
+int write_bar_displays(struct bar *bar) {
+    char to_write[1024];
+    int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\t\"displays\": \"%s\",\n",
                         (bar->displays == NULL ? "all" : bar->displays));
-    if (intermediate_written > 1024 - written) {
-        IPC_send_msg(ipc);
-        written = 0;
+    if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
+        IPC_send_msg(bar->ipc);
+        bar->ipc->msg_bytes = 0;
     }
-    strncpy(ipc->msg + written, to_write, intermediate_written);
-    written += intermediate_written;
+    strncpy(bar->ipc->msg + bar->ipc->msg_bytes, to_write, intermediate_written);
 
+    return intermediate_written;
+}
 
+int write_bar_pos(struct bar *bar) {
+    char to_write[1024];
+    int intermediate_written;
     switch (bar->pos) {
     case (BAR_TOP):
         intermediate_written = snprintf(to_write, 1024, "\t\"position\": \"top\",\n");
+        break;
     case (BAR_BOTTOM):
         intermediate_written = snprintf(to_write, 1024, "\t\"position\": \"bottom\",\n");
+        break;
     case (BAR_LEFT):
         intermediate_written = snprintf(to_write, 1024, "\t\"position\": \"left\",\n");
+        break;
     case (BAR_RIGHT):
         intermediate_written = snprintf(to_write, 1024, "\t\"position\": \"right\",\n");
+        break;
     }
-    if (intermediate_written > 1024 - written) {
-        IPC_send_msg(ipc);
-        written = 0;
+    if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
+        IPC_send_msg(bar->ipc);
+        bar->ipc->msg_bytes = 0;
     }
-    strncpy(ipc->msg + written, to_write, intermediate_written);
-    written += intermediate_written;
+    strncpy(bar->ipc->msg + bar->ipc->msg_bytes, to_write, intermediate_written);
 
+    return intermediate_written;
+}
+
+int write_bar_layer(struct bar *bar) {
+    char to_write[1024];
+    int intermediate_written;
     switch (bar->layer) {
     case (BAR_LAYER_BACKGROUND):
         intermediate_written = snprintf(to_write, 1024, "\t\"layer\": \"background\"\n");
+        break;
     case (BAR_LAYER_BOTTOM):
         intermediate_written = snprintf(to_write, 1024, "\t\"layer\": \"bottom\"\n");
+        break;
     case (BAR_LAYER_TOP):
         intermediate_written = snprintf(to_write, 1024, "\t\"layer\": \"top\"\n");
+        break;
     case (BAR_LAYER_OVERLAY):
         intermediate_written = snprintf(to_write, 1024, "\t\"layer\": \"overlay\"\n");
+        break;
     }
-    if (intermediate_written > 1024 - written) {
-        IPC_send_msg(ipc);
-        written = 0;
+    if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
+        IPC_send_msg(bar->ipc);
+        bar->ipc->msg_bytes = 0;
     }
-    strncpy(ipc->msg + written, to_write, intermediate_written);
-    written += intermediate_written;
+    strncpy(bar->ipc->msg + bar->ipc->msg_bytes, to_write, intermediate_written);
 
-    intermediate_written += snprintf(to_write, 1024, "}");
-    if (intermediate_written > 1024 - written) {
+    return intermediate_written;
+}
+
+void
+send_all(struct bar *bar)
+{
+    struct bar_ipc *ipc = bar->ipc;
+    ipc->msg_bytes = snprintf(ipc->msg, 1024 - ipc->msg_bytes, "{\n");
+
+    ipc->msg_bytes+= write_bar_height(bar);
+
+    ipc->msg_bytes+= write_bar_width(bar);
+
+    ipc->msg_bytes+= write_bar_opacity(bar);
+
+    ipc->msg_bytes+= write_bar_margin(bar);
+
+    ipc->msg_bytes+= write_bar_border(bar);
+
+    ipc->msg_bytes+= write_bar_displays(bar);
+
+    ipc->msg_bytes+= write_bar_pos(bar);
+
+    ipc->msg_bytes+= write_bar_layer(bar);
+
+    char to_write[1024];
+    int intermediate_written = snprintf(to_write, 1024, "}%c", '\0');
+    if (intermediate_written > 1024 - ipc->msg_bytes) {
         IPC_send_msg(ipc);
-        written = 0;
+        ipc->msg_bytes = 0;
     }
-    strncpy(ipc->msg + written, to_write, intermediate_written);
-    written += intermediate_written;
+    strncpy(ipc->msg + ipc->msg_bytes, to_write, intermediate_written);
+    ipc->msg_bytes += intermediate_written + 1;
 
     IPC_send_msg(ipc);
 }
@@ -198,7 +259,8 @@ process_query(struct bar *bar)
         ;
 
     if (msg[0] == '\0') {
-        /* Send all */
+        send_all(bar);
+        return true;
     }
 
 
@@ -225,14 +287,14 @@ process_msg(struct bar *bar)
             return false;
     }
     else if (type == 'q') {
-
+        process_query(bar);
     }
     else {
         log_client_err(bar->ipc, __FILE__, __LINE__, "Unknown message type.");
         return false;
     }
 
-    bar->ipc->msg_bytes = snprintf(bar->ipc->msg, 1024, "SUCCESS");
+    bar->ipc->msg_bytes = snprintf(bar->ipc->msg, 1024, "SUCCESS") + 1;
 
     return true;
 }

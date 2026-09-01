@@ -99,7 +99,7 @@ run_client(char type, int argc, char **argv)
                 IPC_socket_destroy(ipc, CLIENT);
                 return true;
             }
-            fprintf(stderr, "%s\n", ipc->msg);
+            printf("%s", ipc->msg);
         }
     }
 

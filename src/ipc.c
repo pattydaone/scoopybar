@@ -111,7 +111,7 @@ server_receive_msg(struct bar_ipc *server)
         log_err(__FILE__, __LINE__, "Failed to accept.");
         return false;
     }
-    ssize_t b_read = recv(server->accept_fd, server->msg, 1023, 0);
+    ssize_t b_read = recv(server->accept_fd, server->msg, 1024, 0);
     if (b_read == -1) {
         log_err(__FILE__, __LINE__, "Error reading from socket.");
         return false;
@@ -126,7 +126,7 @@ server_receive_msg(struct bar_ipc *server)
 bool
 client_receive_msg(struct bar_ipc *client)
 {
-    ssize_t b_read = recv(client->socket_fd, client->msg, 1023, 0);
+    ssize_t b_read = recv(client->socket_fd, client->msg, 1024, 0);
     if (b_read == -1) {
         log_err(__FILE__, __LINE__, "Error reading from socket.");
         return false;

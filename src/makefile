@@ -22,12 +22,12 @@ bin:
 	mkdir -p ../bin
 
 build_debug: $(files)
-	gcc -std=gnu23 $(debug_opts) $(includes) -c $(files)
-	gcc $(objs) -fsanitize=address -o ../bin/main $(libs)
+	clang -std=gnu23 $(debug_opts) $(includes) -c $(files)
+	clang $(objs) -fsanitize=address -o ../bin/main $(libs)
 
 build_release:
-	gcc -std=gnu23 -O2 $(includes) -c $(files)
-	gcc $(objs) -o ../bin/main $(libs)
+	clang -std=gnu23 -O2 $(includes) -c $(files)
+	clang $(objs) -o ../bin/main $(libs)
 
 clean:
 	rm -f $(objs)
