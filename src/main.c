@@ -52,7 +52,7 @@ prep_and_send_msg(struct bar_ipc *ipc, char type, int argc, char **argv)
     }
     msg[msg_index - 1] = '\0';
 
-    ipc->msg_bytes = snprintf(ipc->msg, 1023, "%s", msg);
+    ipc->msg_bytes = snprintf(ipc->msg, 1024, "%s", msg);
 
     if (!IPC_send_msg(ipc)) {
         log_err(__FILE__, __LINE__, "Failed to send message.");
@@ -85,7 +85,8 @@ run_client(char type, int argc, char **argv)
         /* Blocks until it receives SUCCESS message... scary...
          * but it seems if I don't do this sometimes I'll reach 
          * the timeout before the bar is able to respond, which 
-         * causes the bar to crash as well....
+         * causes the bar to crash as well.... maybe increase 
+         * timeout ?
          */
         if (poll(fd, sizeof(fd)/sizeof(fd[0]), -1) == -1) {
             log_err(__FILE__, __LINE__, "Failed to poll.");
@@ -97,6 +98,7 @@ run_client(char type, int argc, char **argv)
                 goto out;
             if (strcmp(ipc->msg, "SUCCESS") == 0) {
                 IPC_socket_destroy(ipc, CLIENT);
+                putc('\n', stdout);
                 return true;
             }
             printf("%s", ipc->msg);

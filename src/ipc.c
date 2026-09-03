@@ -40,7 +40,10 @@ server_setup(struct bar_ipc *bar_ipc)
     assert(sock != NULL);
 
     char *sock_path = "/tmp/scoopybar-socket";
-    unlink(sock_path); /* In case a previous instance exited abnormally */
+    unlink(sock_path); /* In case a previous instance exited abnormally 
+                        * NOTE: this approach necessarily means that 
+                        * multiple instances can't be run at once
+                        */
     strncpy(sock->sun_path, sock_path, sizeof(sock->sun_path) - 1);
     if (setenv("SCOOPYBARSOCK", sock_path, 1) == -1) {
         log_err(__FILE__, __LINE__, "Failed to set socket.");
@@ -51,7 +54,6 @@ server_setup(struct bar_ipc *bar_ipc)
         log_err(__FILE__, __LINE__, "Failed to bind to socket.");
         return false;
     }
-
     // TODO: increase this number; potentially double the amount of widgets ?
     if (listen(bar_ipc->socket_fd, 3) == -1) {
         log_err(__FILE__, __LINE__, "Failed to listen on socket.");
@@ -67,8 +69,11 @@ IPC_socket_init(struct bar_ipc *bar_ipc, enum sock_type type)
     assert(bar_ipc != NULL);
 
     bar_ipc->accept_fd = -1;
-    /* TODO: consider swapping SOCK_STREAM for SOCK_SEQPACKET */
-    bar_ipc->socket_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+    /* TODO: using SOCK_SEQPACKET here wastes a lot of space for most messages; consider 
+     * going back to SOCK_STREAM and using a different way to determine message boundaries 
+     * (for example, send size of message in front)
+     */
+    bar_ipc->socket_fd = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     bar_ipc->socket->sun_family = AF_UNIX;
     if (bar_ipc->socket_fd == -1) {
         log_err(__FILE__, __LINE__, "Failed to create socket fd.");
