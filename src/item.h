@@ -2,6 +2,7 @@
 #define ITEM_H
 
 #include "bar.h"
+#include "utils/config_parser.h"
 
 #include <pixman.h>
 #include <stdint.h>
@@ -15,9 +16,17 @@ enum item_position {
 };
 
 struct bar_item {
+    char *item_name;
+
+    bool draw;
+
+    bool fixed_x;
+    bool fixed_y;
     uint32_t x_pos;
     uint32_t y_pos;
 
+    bool fixed_width;
+    bool fixed_height;
     uint32_t width;
     uint32_t height;
 
@@ -37,5 +46,11 @@ struct bar_item {
     uint32_t label_padding_l;
     uint32_t label_padding_r;
 };
+
+struct bar_item *item_init();
+
+void item_destroy(struct bar_item *item);
+
+bool item_update(struct bar_item *item);
 
 #endif

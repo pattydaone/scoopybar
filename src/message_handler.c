@@ -15,11 +15,11 @@ extract_kv(struct bar_ipc *ipc, char *key, char *value)
     while ((cur = msgs[i]) != '=') {
         if (i > 511) {
             snprintf(ipc->msg, 1024, "ERROR: Key too long.");
-            return NULL;
+            return nullptr;
         }
         if (cur == ' ' || cur == '\0') {
             snprintf(ipc->msg, 1024, "ERROR: Key without a value.");
-            return NULL;
+            return nullptr;
         }
         key[i] = cur;
         ++i;
@@ -31,7 +31,7 @@ extract_kv(struct bar_ipc *ipc, char *key, char *value)
     while ((cur = msgs[j]) != ' ' && cur != '\0') {
         if (j > 511) {
             snprintf(ipc->msg, 1024, "ERROR: Value too long.");
-            return NULL;
+            return nullptr;
         }
         value[j] = cur;
         ++j;
@@ -159,7 +159,7 @@ int write_bar_border(struct bar *bar) {
 int write_bar_displays(struct bar *bar) {
     char to_write[1024];
     int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\"displays\": \"%s\",",
-                        (bar->displays == NULL ? "all" : bar->displays));
+                                        (bar->displays == nullptr ? "all" : bar->displays));
     if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
         IPC_send_msg(bar->ipc);
         bar->ipc->msg_bytes = 0;
@@ -282,11 +282,11 @@ process_msg(struct bar *bar)
     char value[512];
 
     if (type == 'm') {
-        while ((msgs = extract_kv(bar->ipc, key, value)) != NULL && msgs[0] != '\0')
+        while ((msgs = extract_kv(bar->ipc, key, value)) != nullptr&& msgs[0] != '\0')
             if (m_find_by_key(bar, key, value))
                 return false;
 
-        if (msgs == NULL)
+        if (msgs == nullptr)
             return false;
 
         if (!m_find_by_key(bar, key, value))

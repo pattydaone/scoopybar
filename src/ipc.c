@@ -14,11 +14,11 @@ bool
 client_setup(struct bar_ipc *bar_ipc)
 {
     struct sockaddr_un *sock = bar_ipc->socket;
-    assert(sock != NULL);
+    assert(sock != nullptr);
 
     // char *sock_path = getenv("SCOOPYBARSOCK");
     char *sock_path = "/tmp/scoopybar-socket";
-    if (sock_path == NULL) {
+    if (sock_path == nullptr) {
         log_err(__FILE__, __LINE__, "Socket not set. Is scoopybar running?");
         return false;
     }
@@ -37,7 +37,7 @@ bool
 server_setup(struct bar_ipc *bar_ipc)
 {
     struct sockaddr_un *sock = bar_ipc->socket;
-    assert(sock != NULL);
+    assert(sock != nullptr);
 
     char *sock_path = "/tmp/scoopybar-socket";
     unlink(sock_path); /* In case a previous instance exited abnormally 
@@ -66,7 +66,7 @@ server_setup(struct bar_ipc *bar_ipc)
 bool
 IPC_socket_init(struct bar_ipc *bar_ipc, enum sock_type type)
 {
-    assert(bar_ipc != NULL);
+    assert(bar_ipc != nullptr);
 
     bar_ipc->accept_fd = -1;
     /* TODO: using SOCK_SEQPACKET here wastes a lot of space for most messages; consider 
@@ -90,13 +90,13 @@ IPC_socket_init(struct bar_ipc *bar_ipc, enum sock_type type)
 void
 IPC_socket_destroy(struct bar_ipc *bar_ipc, enum sock_type type)
 {
-    assert(bar_ipc != NULL);
+    assert(bar_ipc != nullptr);
 
     if (close(bar_ipc->socket_fd) == -1)
         log_err(__FILE__, __LINE__, "Failed to close socket fd.");
     if (bar_ipc->accept_fd != -1 && close(bar_ipc->accept_fd) == -1)
         log_err(__FILE__, __LINE__, "Failed to close accept fd.");
-    if (bar_ipc->socket != NULL) {
+    if (bar_ipc->socket != nullptr) {
         if (type == SERVER)
             unlink(bar_ipc->socket->sun_path);
         free(bar_ipc->socket);
@@ -108,10 +108,23 @@ IPC_socket_destroy(struct bar_ipc *bar_ipc, enum sock_type type)
     }
 }
 
+uint16_t
+get_msg_length(struct bar_ipc *server)
+{
+    char len_as_char[5];
+    ssize_t b_read = recv(server->accept_fd, len_as_char, 5, 0);
+    if (b_read == -1) {
+        log_err(__FILE__, __LINE__, "Error reading from socket.");
+        return 0;
+    }
+    
+    return strtol(len_as_char, nullptr, 0);
+}
+
 bool
 server_receive_msg(struct bar_ipc *server)
 {
-    server->accept_fd = accept(server->socket_fd, NULL, NULL);
+    server->accept_fd = accept(server->socket_fd, nullptr, nullptr);
     if (server->accept_fd == -1) {
         log_err(__FILE__, __LINE__, "Failed to accept.");
         return false;
@@ -147,11 +160,27 @@ client_receive_msg(struct bar_ipc *client)
 bool
 IPC_send_msg(struct bar_ipc *client)
 {
-    ssize_t b_written;
-    if (client->accept_fd == -1)
+    char msg_len[6] = {0, 0, 0, 0, 0, 0};
+    snprintf(msg_len, 6, "%u", (uint16_t)strlen(client->msg));
+    ssize_t b_written = 0;
+    if (client->accept_fd == -1) {
+        // b_written = send(client->socket_fd, msg_len, 5, 0);
+        // if (b_written == -1) {
+        //     log_err(__FILE__, __LINE__, "Failed to write message length to socket.");
+        //     return false;
+        // }
+
         b_written = send(client->socket_fd, client->msg, client->msg_bytes, 0);
-    else 
+    }
+    else {
+        // b_written = send(client->accept_fd, msg_len, 5, 0);
+        // if (b_written == -1) {
+        //     log_err(__FILE__, __LINE__, "Failed to write message length to socket.");
+        //     return false;
+        // }
+
         b_written = send(client->accept_fd, client->msg, client->msg_bytes, 0);
+    }
 
     if (b_written == -1) {
         log_err(__FILE__, __LINE__, "Failed to write to socket.");

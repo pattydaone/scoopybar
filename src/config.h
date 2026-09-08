@@ -3,6 +3,7 @@
 
 #include "utils/config_parser.h"
 #include "bar.h"
+#include "item.h"
 
 enum bar_attributes {
     BAR_BACKGROUND_COLOR,

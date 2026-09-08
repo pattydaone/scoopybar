@@ -113,25 +113,25 @@ create_buffer(struct output *output)
     int fd = allocate_shm_file(size);
     if (fd == -1) {
         log_err(__FILE__, __LINE__, "Failed to allocate shared memory file");
-        return NULL;
+        return nullptr;
     }
 
-    uint32_t *mmapping = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    uint32_t *mmapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
     if (mmapping == MAP_FAILED) {
         log_err(__FILE__, __LINE__, "Failed to create memory map.");
         close(fd);
-        return NULL;
+        return nullptr;
     }
 
     struct wl_shm_pool *pool = wl_shm_create_pool(bar->wl_shm, fd, size);
-    if (pool == NULL) {
+    if (pool == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to create shared memory pool.");
         exit(EXIT_FAILURE);
     }
 
     struct wl_buffer *wl_buf = wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
-    if (wl_buf == NULL) {
+    if (wl_buf == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to create wl_buffer.");
         exit(EXIT_FAILURE);
     }
@@ -147,7 +147,7 @@ create_buffer(struct output *output)
     buf->wl_buf = wl_buf;
     buf->busy = false;
     buf->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, width, height, mmapping, stride);
-    if (buf->pix == NULL) {
+    if (buf->pix == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to create pixman image.");
     }
 
@@ -160,13 +160,13 @@ create_buffer(struct output *output)
 void
 destroy_buffer(struct surface_buf *buf)
 {
-    if (buf == NULL)
+    if (buf == nullptr)
         return;
-    if (buf->pix != NULL)
+    if (buf->pix != nullptr)
         pixman_image_unref(buf->pix);
-    if (buf->wl_buf != NULL)
+    if (buf->wl_buf != nullptr)
         wl_buffer_destroy(buf->wl_buf);
-    if (buf->map != NULL)
+    if (buf->map != nullptr)
         munmap(buf->map, buf->size);
     free(buf);
 }
@@ -256,7 +256,7 @@ create_surface(struct output *output)
     output->surface.width = bar->width;
 
     output->surface.wl_surface = wl_compositor_create_surface(bar->wl_compositor);
-    if (output->surface.wl_surface == NULL) {
+    if (output->surface.wl_surface == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to create wl_surface for output %s", output->name);
         goto err;
     }
@@ -281,7 +281,7 @@ create_surface(struct output *output)
     output->surface.layer_surface = zwlr_layer_shell_v1_get_layer_surface(
         bar->zwlr_layer_shell, output->surface.wl_surface, output->wl_output, layer, "panel");
 
-    if (output->surface.layer_surface == NULL) {
+    if (output->surface.layer_surface == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to create layer_surface for output %s", output->name);
         goto err;
     }
@@ -320,13 +320,13 @@ create_surface(struct output *output)
     wl_surface_commit(output->surface.wl_surface);
 
     output->rendering_buf = create_buffer(output);
-    if (output->rendering_buf == NULL) {
+    if (output->rendering_buf == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to create buffer for output %s", output->name);
         goto err;
     }
 
     output->pending_buf = create_buffer(output);
-    if (output->pending_buf == NULL) {
+    if (output->pending_buf == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to create buffer for output %s", output->name);
         goto err;
     }
@@ -334,13 +334,13 @@ create_surface(struct output *output)
     return true;
 
 err:
-    if (output->surface.wl_surface != NULL)
+    if (output->surface.wl_surface != nullptr)
         wl_surface_destroy(output->surface.wl_surface);
-    if (output->surface.layer_surface != NULL)
+    if (output->surface.layer_surface != nullptr)
         zwlr_layer_surface_v1_destroy(output->surface.layer_surface);
-    if (output->rendering_buf != NULL)
+    if (output->rendering_buf != nullptr)
         destroy_buffer(output->rendering_buf);
-    if (output->pending_buf != NULL)
+    if (output->pending_buf != nullptr)
         destroy_buffer(output->pending_buf);
     return false;
 }
@@ -376,7 +376,7 @@ static void
 wl_output_name(void *data, struct wl_output *, const char *name)
 {
     struct output *out = data;
-    out->name = (name != NULL ? strdup(name) : NULL);
+    out->name = (name != nullptr? strdup(name) : nullptr);
 }
 
 static void
@@ -403,20 +403,20 @@ static const struct wl_output_listener wl_output_listener = {.geometry = &wl_out
 void
 output_destroy(struct output *out)
 {
-    if (out->wl_output != NULL) {
+    if (out->wl_output != nullptr) {
         wl_output_destroy(out->wl_output);
     }
-    if (out->name != NULL) {
+    if (out->name != nullptr) {
         free(out->name);
     }
-    if (out->pending_buf != NULL)
+    if (out->pending_buf != nullptr)
         destroy_buffer(out->pending_buf);
-    if (out->rendering_buf != NULL)
+    if (out->rendering_buf != nullptr)
         destroy_buffer(out->rendering_buf);
-    if (out->surface.layer_surface != NULL) {
+    if (out->surface.layer_surface != nullptr) {
         zwlr_layer_surface_v1_destroy(out->surface.layer_surface);
     }
-    if (out->surface.wl_surface != NULL) {
+    if (out->surface.wl_surface != nullptr) {
         wl_surface_destroy(out->surface.wl_surface);
     }
     free(out);
@@ -486,9 +486,10 @@ struct bar_backend *
 init_bar_backend(struct bar *bar)
 {
     struct bar_backend *ret = malloc(sizeof(struct bar_backend));
+    memset(ret, 0, sizeof(struct bar_backend));
 
-    if (ret == NULL) {
-        return NULL;
+    if (ret == nullptr) {
+        return nullptr;
     }
 
     ret->bar_frontend = bar;
@@ -496,15 +497,16 @@ init_bar_backend(struct bar *bar)
     ret->height = bar->height;
     ret->background_color = &bar->background_color;
     ret->background_color->alpha = 65535 * bar->opacity;
-    ret->outputs = NULL;
+    ret->outputs = nullptr;
 
-    ret->wl_display = wl_display_connect(NULL);
-    if (ret->wl_display == NULL) {
+    ret->wl_display = wl_display_connect(nullptr);
+    if (ret->wl_display == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to connect to wl_display.");
+        goto err;
     }
 
     ret->wl_registry = wl_display_get_registry(ret->wl_display);
-    if (ret->wl_registry == NULL) {
+    if (ret->wl_registry == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to get wl_registry.");
         goto err;
     }
@@ -512,22 +514,22 @@ init_bar_backend(struct bar *bar)
     wl_registry_add_listener(ret->wl_registry, &registry_listener, ret);
     wl_display_roundtrip(ret->wl_display);
 
-    if (ret->wl_shm == NULL) {
+    if (ret->wl_shm == nullptr) {
         log_err(__FILE__, __LINE__, "wl_shm not created.");
         goto err;
     }
 
-    if (ret->wl_compositor == NULL) {
+    if (ret->wl_compositor == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to get wl_compositor.");
         goto err;
     }
 
-    if (ret->zwlr_layer_shell == NULL) {
+    if (ret->zwlr_layer_shell == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to get layer_shell object.");
         goto err;
     }
 
-    if (ret->outputs == NULL) {
+    if (ret->outputs == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to connect to any outputs.");
         goto err;
     }
@@ -535,15 +537,15 @@ init_bar_backend(struct bar *bar)
     wl_display_roundtrip(ret->wl_display);
 
     char *valid_outputs = ret->bar_frontend->displays;
-    for (struct output_node *cur = ret->outputs; cur != NULL;) {
-        if (cur->data->name == NULL) {
+    for (struct output_node *cur = ret->outputs; cur != nullptr;) {
+        if (cur->data->name == nullptr) {
             struct output_node *tmp = cur;
             cur = cur->next;
             output_destroy(tmp->data);
             LL_delete_output(&ret->outputs, tmp);
             continue;
         }
-        if (valid_outputs != NULL && strstr(valid_outputs, cur->data->name) == NULL) {
+        if (valid_outputs != nullptr&& strstr(valid_outputs, cur->data->name) == nullptr) {
             struct output_node *tmp = cur;
             cur = cur->next;
             output_destroy(tmp->data);
@@ -557,7 +559,7 @@ init_bar_backend(struct bar *bar)
 
         cur = cur->next;
     }
-    if (ret->outputs == NULL) {
+    if (ret->outputs == nullptr) {
         log_err(__FILE__, __LINE__, "No displays found.");
         goto err;
     }
@@ -567,42 +569,42 @@ init_bar_backend(struct bar *bar)
     return ret;
 err:
     destroy_bar_backend(ret);
-    return NULL;
+    return nullptr;
 }
 
 void
 destroy_bar_backend(struct bar_backend *backend)
 {
-    struct output_node *to_free = NULL;
+    struct output_node *to_free = nullptr;
     ll_foreach(backend->outputs, cur)
     {
-        if (cur->data != NULL) {
+        if (cur->data != nullptr) {
             struct output *out = cur->data;
             output_destroy(out);
         }
-        if (to_free != NULL) {
+        if (to_free != nullptr) {
             free(to_free);
         }
         to_free = cur;
     }
-    if (to_free != NULL)
+    if (to_free != nullptr)
         free(to_free);
 
-    if (backend->zwlr_layer_shell != NULL) {
+    if (backend->zwlr_layer_shell != nullptr) {
         zwlr_layer_shell_v1_destroy(backend->zwlr_layer_shell);
     }
 
-    if (backend->wl_shm != NULL) {
+    if (backend->wl_shm != nullptr) {
         wl_shm_destroy(backend->wl_shm);
     }
 
-    if (backend->wl_compositor != NULL) {
+    if (backend->wl_compositor != nullptr) {
         wl_compositor_destroy(backend->wl_compositor);
     }
-    if (backend->wl_registry != NULL) {
+    if (backend->wl_registry != nullptr) {
         wl_registry_destroy(backend->wl_registry);
     }
-    if (backend->wl_display != NULL) {
+    if (backend->wl_display != nullptr) {
         wl_display_disconnect(backend->wl_display);
     }
 
@@ -655,9 +657,9 @@ bar_commit(struct bar *bar)
         struct output *out = cur->data;
         struct surface_buf *buf = out->pending_buf;
         assert(buf->busy == false);
-        assert(buf->pix != NULL);
+        assert(buf->pix != nullptr);
 
-        pixman_image_composite(PIXMAN_OP_SRC, bar->pix, NULL, buf->pix, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
+        pixman_image_composite(PIXMAN_OP_SRC, bar->pix, nullptr, buf->pix, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
 
         wl_surface_attach(out->surface.wl_surface, buf->wl_buf, 0, 0);
         wl_surface_damage_buffer(out->surface.wl_surface, 0, 0, buf->width, buf->height);

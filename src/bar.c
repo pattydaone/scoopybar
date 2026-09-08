@@ -17,22 +17,23 @@
 struct bar *
 init_bar(struct ConfParser *p)
 {
-    assert(p != NULL);
+    assert(p != nullptr);
     struct bar *ret = malloc(sizeof(struct bar));
+    memset(ret, 0, sizeof(struct bar));
 
     enum PARSER_CODES section_code;
     while ((section_code = PARSER_next_section(p)) == SUCCESS) {
         if (!set_opts(ret, p)) {
-            return NULL;
+            return nullptr;
         }
     }
     PARSER_clean(p);
 
     ret->backend = init_bar_backend(ret);
-    if (ret->backend == NULL) {
+    if (ret->backend == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to create bar backend.");
         bar_destroy(ret);
-        return NULL;
+        return nullptr;
     }
 
     struct bar_ipc *bar_ipc = malloc(sizeof(struct bar_ipc));
@@ -40,7 +41,7 @@ init_bar(struct ConfParser *p)
 
     IPC_socket_init(bar_ipc, SERVER);
     ret->ipc = bar_ipc;
-    ret->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, ret->width, ret->height, NULL,
+    ret->pix = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, ret->width, ret->height, nullptr,
                                                  ret->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
 
     return ret;
@@ -50,16 +51,16 @@ void
 bar_destroy(struct bar *bar)
 {
     log_dbg(__FILE__, __LINE__, 3, "bar destroy called.");
-    if (bar->ipc != NULL)
+    if (bar->ipc != nullptr)
         IPC_socket_destroy(bar->ipc, SERVER);
 
-    if (bar->backend != NULL)
+    if (bar->backend != nullptr)
         destroy_bar_backend(bar->backend);
 
-    if (bar->displays != NULL)
+    if (bar->displays != nullptr)
         free(bar->displays);
 
-    if (bar->pix != NULL)
+    if (bar->pix != nullptr)
         pixman_image_unref(bar->pix);
 
     free(bar);
@@ -135,10 +136,10 @@ bool
 bar_refresh_bg_color(struct bar *bar)
 {
     pixman_image_t *fill = pixman_image_create_solid_fill(&bar->background_color);
-    if (fill == NULL)
+    if (fill == nullptr)
         return false;
 
-    pixman_image_composite(PIXMAN_OP_SRC, fill, NULL, bar->pix, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
+    pixman_image_composite(PIXMAN_OP_SRC, fill, nullptr, bar->pix, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
     if (!pixman_image_unref(fill))
         return false;
 
@@ -165,12 +166,12 @@ bar_refresh_height(struct bar *bar)
         return true;
     }
 
-    pixman_image_t *new = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, bar->width, bar->height, NULL,
+    pixman_image_t *new = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, bar->width, bar->height, nullptr,
                                                             bar->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
-    if (new == NULL)
+    if (new == nullptr)
         return false;
 
-    pixman_image_composite(PIXMAN_OP_SRC, bar->pix, NULL, new, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
+    pixman_image_composite(PIXMAN_OP_SRC, bar->pix, nullptr, new, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
 
     if (!pixman_image_unref(bar->pix))
         return false;
@@ -194,12 +195,12 @@ bar_refresh_width(struct bar *bar)
         return true;
     }
 
-    pixman_image_t *new = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, bar->width, bar->height, NULL,
+    pixman_image_t *new = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, bar->width, bar->height, nullptr,
                                                             bar->width * PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8);
-    if (new == NULL)
+    if (new == nullptr)
         return false;
 
-    pixman_image_composite(PIXMAN_OP_SRC, bar->pix, NULL, new, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
+    pixman_image_composite(PIXMAN_OP_SRC, bar->pix, nullptr, new, 0, 0, 0, 0, 0, 0, bar->width, bar->height);
 
     if (!pixman_image_unref(bar->pix))
         return false;

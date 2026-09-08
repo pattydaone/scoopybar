@@ -33,6 +33,7 @@ keep these things in mind when reading, referencing (lol), and/or making suggest
 # TODO list
 
 - [ ] Add colors and time stamps for log statements
+- [ ] Consider changing ipc model: using streams which have some more defined way to indicate end of message, but without having a fixed length as with seqpack
 - [ ] Add ability to query bar information
 - [ ] Extra configuration testing
 - [ ] Add basic items

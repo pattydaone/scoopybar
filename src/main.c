@@ -68,7 +68,7 @@ run_client(char type, int argc, char **argv)
 {
     struct bar_ipc *ipc = malloc(sizeof(struct bar_ipc));
     ipc->socket = malloc(sizeof(struct sockaddr_un));
-    if (ipc == NULL || ipc->socket == NULL) {
+    if (ipc == nullptr|| ipc->socket == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to allocate ipc structs.");
         goto out;
     }
@@ -128,10 +128,10 @@ main(int argc, char **argv)
                                                 {"query", required_argument, 0, 'q'},
                                                 {"config", required_argument, 0, 'c'},
                                                 {"help", no_argument, 0, 'h'},
-                                                {NULL, no_argument, 0, 0}};
+                                                {nullptr, no_argument, 0, 0}};
 
     int opt_char;
-    while ((opt_char = getopt_long(argc, argv, "m:q:c:h", longoptions, NULL)) != -1) {
+    while ((opt_char = getopt_long(argc, argv, "m:q:c:h", longoptions, nullptr)) != -1) {
         switch (opt_char) {
         case 'h':
             print_usage();
@@ -158,18 +158,18 @@ main(int argc, char **argv)
 
     const struct sigaction handler = {.sa_handler = &signal_handler};
 
-    sigaction(SIGTERM, &handler, NULL);
-    sigaction(SIGINT, &handler, NULL);
-    sigaction(SIGABRT, &handler, NULL);
+    sigaction(SIGTERM, &handler, nullptr);
+    sigaction(SIGINT, &handler, nullptr);
+    sigaction(SIGABRT, &handler, nullptr);
 
     struct ConfParser *p = PARSER_create(config_path, 512);
-    if (p == NULL) {
+    if (p == nullptr) {
         log_err(__FILE__, __LINE__, "%s: path not found", config_path);
         exit(EXIT_FAILURE);
     }
 
     struct bar *bar = init_bar(p);
-    if (bar == NULL) {
+    if (bar == nullptr) {
         exit(EXIT_FAILURE);
     }
 

@@ -11,6 +11,19 @@ static const char *valid_bar_keys[]
     = {"height",       "width",          "position", "opacity", "background_color", "margin", "border_width",
        "border_color", "border_opacity", "display",  "layer"};
 
+static const char *valid_item_keys[] = {"position",
+                                        "draw",
+                                        "x_position",
+                                        "y_position",
+                                        "width",
+                                        "height",
+                                        "background_color",
+                                        "bg_padding_left",
+                                        "bg_padding_right",
+                                        "icon",
+                                        "icon_padding_left",
+                                        "icon_padding_right"};
+
 static const char *valid_sections[] = {"bar", "itemXX"};
 
 bool
@@ -103,7 +116,7 @@ bool
 set_height(struct bar *bar, char *value, int cur_line)
 {
     struct bar_ipc *ipc = bar->ipc;
-    int val = strtol(value, NULL, 10);
+    int val = strtol(value, nullptr, 10);
     if (!val && value[0] != '0') {
         char *err = "%s: Invalid bar height.";
         if (ipc)
@@ -127,7 +140,7 @@ bool
 set_width(struct bar *bar, char *value, int cur_line)
 {
     struct bar_ipc *ipc = bar->ipc;
-    int val = strtol(value, NULL, 10);
+    int val = strtol(value, nullptr, 10);
     if (!val && value[0] != '0') {
         char *err= "%s: Invalid bar width.";
         if (ipc)
@@ -174,7 +187,7 @@ bool
 set_opacity(struct bar *bar, char *value, int cur_line)
 {
     struct bar_ipc *ipc = bar->ipc;
-    float val = strtof(value, NULL);
+    float val = strtof(value, nullptr);
     if (val == 0) {
         char *err = "%s: Invalid background opacity.";
         if (ipc)
@@ -212,7 +225,7 @@ bool
 set_margin(struct bar *bar, char *value, int cur_line)
 {
     struct bar_ipc *ipc = bar->ipc;
-    int val = strtol(value, NULL, 10);
+    int val = strtol(value, nullptr, 10);
     if (!val && value[0] != '0') {
         char *err = "%s: Invalid bar margin.";
         if (ipc)
@@ -236,7 +249,7 @@ bool
 set_border_width(struct bar *bar, char *value, int cur_line)
 {
     struct bar_ipc *ipc = bar->ipc;
-    int val = strtol(value, NULL, 10);
+    int val = strtol(value, nullptr, 10);
     if (!val && value[0] != '0') {
         char *err = "%s: Invalid bar border width.";
         if (ipc)
@@ -266,7 +279,7 @@ bool
 set_border_opacity(struct bar *bar, char *value, int cur_line)
 {
     struct bar_ipc *ipc = bar->ipc;
-    float val = strtof(value, NULL);
+    float val = strtof(value, nullptr);
     if (val == 0) {
         char *err = "%s: Invalid border opacity.";
         if (ipc)
@@ -298,7 +311,7 @@ bool
 set_display(struct bar *bar, char *value, int)
 {
     if (strcmp(value, "all") == 0) {
-        bar->displays = NULL;
+        bar->displays = nullptr;
     } else
         bar->displays = strdup(value);
     return true;
@@ -405,7 +418,7 @@ set_bar_opt(struct bar *bar, struct ConfParser *p)
     if ((find_code = PARSER_find(p, valid_bar_keys[9], value)) == SUCCESS) {
         set_display(bar, value, cur_line);
     } else
-        bar->displays = NULL;
+        bar->displays = nullptr;
 
     /* Bar layer */
     if ((find_code = PARSER_find(p, valid_bar_keys[10], value)) == SUCCESS) {
@@ -413,6 +426,42 @@ set_bar_opt(struct bar *bar, struct ConfParser *p)
             return false;
     } else
         bar->layer = BAR_LAYER_BACKGROUND;
+
+    return true;
+}
+
+bool set_item_position(struct bar_item *item, char *value, int cur_line) {
+    if (strcmp(value, "left") == 0)
+        item->pos = ITEM_LEFT;
+    else if (strcmp(value, "right") == 0)
+        item->pos = ITEM_RIGHT;
+    else if (strcmp(value, "center") == 0)
+        item->pos = ITEM_CENTER;
+    else if (strcmp(value, "notch_left") == 0)
+        item->pos = ITEM_NOTCH_LEFT;
+    else if (strcmp(value, "notch_right") == 0)
+        item->pos = ITEM_NOTCH_RIGHT;
+    else {
+        log_conf_err(cur_line, "Invalid position argument: %s", value);
+        return false;
+    }
+    return true;
+}
+
+bool
+set_item_opt(struct bar_item *item, struct ConfParser *p)
+{
+    char value[p->buf_sz];
+    enum PARSER_CODES find_code;
+    int cur_line = p->current_line;
+
+    /* Item position */
+    if ((find_code = PARSER_find(p, valid_item_keys[0], value)) == SUCCESS) {
+        if (!set_item_position(item, value, cur_line)) {
+            log_conf_err(cur_line, "Position for item %s not specified.", p->section);
+            return false;
+        }
+    }
 
     return true;
 }
