@@ -1,14 +1,41 @@
 #include "event.h"
 
-#include "utils/log.h"
-#include "utils/ll.h"
 #include "config.h"
+#include "utils/log.h"
 
 #include <assert.h>
 #include <stdlib.h>
 
+struct queue *
+init_queue()
+{
+    struct queue *ret = malloc(sizeof(struct queue));
+    if (ret == nullptr) {
+        log_err(__FILE__, __LINE__, "Failed to create queue object.");
+        return nullptr;
+    }
+
+    ret->head = nullptr;
+    ret->tail = nullptr;
+
+    return ret;
+}
+
+void
+destroy_queue(struct queue *queue)
+{
+    assert(queue != nullptr);
+    while (queue->head != nullptr) {
+        struct event_node *to_destroy = queue->head;
+        queue->head = to_destroy->next;
+        destroy_event(to_destroy->data);
+        free(to_destroy);
+    }
+    free(queue);
+}
+
 struct event *
-event_create(enum event_type type, void *event_data)
+init_event(enum event_type type, void *event_data)
 {
     assert(event_data != nullptr);
 
@@ -34,7 +61,7 @@ event_create(enum event_type type, void *event_data)
 }
 
 void
-event_destroy(struct event *event)
+destroy_event(struct event *event)
 {
     assert(event != nullptr);
 
@@ -47,41 +74,46 @@ event_destroy(struct event *event)
 }
 
 bool
-event_process(struct event *event, struct bar *bar)
+process_event(struct queue *queue, struct bar *bar)
 {
+    assert(queue != nullptr);
+
+    struct event *event = queue->head->data;
     assert(event != nullptr);
 
-    switch(event->type) {
-        case (EVENT_QUERY):
-            break;
-        case (EVENT_BAR_MSG):
-            return bar_set_attribute(bar, event->event.bar_msg->value, event->event.bar_msg->attribute);
-        case (EVENT_ITEM_MSG):
-            break;
+    bool ret = false;
+    switch (event->type) {
+    case (EVENT_QUERY):
+        break;
+    case (EVENT_BAR_MSG):
+        ret = bar_set_attribute(bar, event->event.bar_msg->value, event->event.bar_msg->attribute);
+    case (EVENT_ITEM_MSG):
+        break;
     }
 
-    return false;
+    struct event_node *to_destroy = queue->head;
+    if (to_destroy == queue->tail)
+        queue->tail = nullptr;
+    queue->head = to_destroy->next;
+    destroy_event(to_destroy->data);
+    free(to_destroy);
+
+    return ret;
 }
 
 void
-destroy_events(struct event_node *queue)
+append_event(struct queue *q, struct event *event)
 {
-    /* Not sure about this */
-    while (queue != nullptr) {
-        event_destroy(queue->data);
-        LL_delete_event(&queue, queue);
-    }
+    struct event_node *node = malloc(sizeof(struct event_node));
+
+    node->data = event;
+    node->next = nullptr;
+    q->tail->next = node;
+    q->tail = node;
 }
 
 bool
-empty_queue(struct event_node *queue, struct bar *bar)
+is_empty(struct queue *q)
 {
-    ll_foreach(queue, next)
-    {
-        event_process(next->data, bar);
-    }
-
-    destroy_events(queue);
-
-    return true;
+    return q->head == nullptr;
 }

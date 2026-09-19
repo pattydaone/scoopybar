@@ -1,7 +1,7 @@
 #include "message_handler.h"
 
-#include "ipc.h"
 #include "config.h"
+#include "ipc.h"
 #include "utils/log.h"
 
 char *
@@ -49,35 +49,29 @@ m_find_by_key(struct bar *bar, char *key, char *value)
 {
     if (strcmp(key, "bar.background") == 0) {
         return bar_set_attribute(bar, value, BAR_BACKGROUND_COLOR);
-    }
-    else if (strcmp(key, "bar.opacity") == 0) {
+    } else if (strcmp(key, "bar.opacity") == 0) {
         return bar_set_attribute(bar, value, BAR_OPACITY);
-    }
-    else if (strcmp(key, "bar.height") == 0) {
+    } else if (strcmp(key, "bar.height") == 0) {
         return bar_set_attribute(bar, value, BAR_HEIGHT);
-    }
-    else if (strcmp(key, "bar.width") == 0) {
+    } else if (strcmp(key, "bar.width") == 0) {
         return bar_set_attribute(bar, value, BAR_WIDTH);
-    }
-    else if (strcmp(key, "bar.position") == 0) {
+    } else if (strcmp(key, "bar.position") == 0) {
         return bar_set_attribute(bar, value, BAR_POSITION);
-    }
-    else if (strcmp(key, "bar.margin") == 0) {
+    } else if (strcmp(key, "bar.margin") == 0) {
         return bar_set_attribute(bar, value, BAR_MARGIN);
-    }
-    else if (strcmp(key, "bar.border_width") == 0) {
+    } else if (strcmp(key, "bar.border_width") == 0) {
         return bar_set_attribute(bar, value, BAR_BORDER_WIDTH);
-    }
-    else if (strcmp(key, "bar.border_color") == 0) {
+    } else if (strcmp(key, "bar.border_color") == 0) {
         return bar_set_attribute(bar, value, BAR_BORDER_COLOR);
-    }
-    else if (strcmp(key, "bar.border_opacity") == 0) {
+    } else if (strcmp(key, "bar.border_opacity") == 0) {
         return bar_set_attribute(bar, value, BAR_BORDER_OPACITY);
     }
     return true;
 }
 
-int write_bar_height(struct bar *bar) {
+int
+write_bar_height(struct bar *bar)
+{
     char to_write[1024];
     int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\"height\": %d,", bar->height);
     if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
@@ -89,7 +83,9 @@ int write_bar_height(struct bar *bar) {
     return intermediate_written;
 }
 
-int write_bar_width(struct bar *bar) {
+int
+write_bar_width(struct bar *bar)
+{
     char to_write[1024];
     int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\"width\": %d,", bar->width);
     if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
@@ -101,9 +97,12 @@ int write_bar_width(struct bar *bar) {
     return intermediate_written;
 }
 
-int write_bar_opacity(struct bar *bar) {
+int
+write_bar_opacity(struct bar *bar)
+{
     char to_write[1024];
-    int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\"opacity\": %f,", bar->opacity / 65536.0);
+    int intermediate_written
+        = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\"opacity\": %f,", bar->opacity / 65536.0);
     if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
         IPC_send_msg(bar->ipc);
         bar->ipc->msg_bytes = 0;
@@ -113,12 +112,13 @@ int write_bar_opacity(struct bar *bar) {
     return intermediate_written;
 }
 
-int write_bar_color(struct bar *bar) {
+int
+write_bar_color(struct bar *bar)
+{
     char to_write[1024];
-    int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes,
-                                        "\"color\": {\"red\": %d,\"green\": %d,\"blue\": %d},",
-                                        bar->background_color.red / 257, bar->background_color.green / 257,
-                                        bar->background_color.blue / 257);
+    int intermediate_written = snprintf(
+        to_write, 1024 - bar->ipc->msg_bytes, "\"color\": {\"red\": %d,\"green\": %d,\"blue\": %d},",
+        bar->background_color.red / 257, bar->background_color.green / 257, bar->background_color.blue / 257);
     if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
         IPC_send_msg(bar->ipc);
         bar->ipc->msg_bytes = 0;
@@ -128,7 +128,9 @@ int write_bar_color(struct bar *bar) {
     return intermediate_written;
 }
 
-int write_bar_margin(struct bar *bar) {
+int
+write_bar_margin(struct bar *bar)
+{
     char to_write[1024];
     int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\"margin\": %d,", bar->margin);
     if (intermediate_written > 1024 - bar->ipc->msg_bytes) {
@@ -140,7 +142,9 @@ int write_bar_margin(struct bar *bar) {
     return intermediate_written;
 }
 
-int write_bar_border(struct bar *bar) {
+int
+write_bar_border(struct bar *bar)
+{
     char to_write[1024];
     int intermediate_written = snprintf(
         to_write, 1024 - bar->ipc->msg_bytes,
@@ -156,7 +160,9 @@ int write_bar_border(struct bar *bar) {
     return intermediate_written;
 }
 
-int write_bar_displays(struct bar *bar) {
+int
+write_bar_displays(struct bar *bar)
+{
     char to_write[1024];
     int intermediate_written = snprintf(to_write, 1024 - bar->ipc->msg_bytes, "\"displays\": \"%s\",",
                                         (bar->displays == nullptr ? "all" : bar->displays));
@@ -169,7 +175,9 @@ int write_bar_displays(struct bar *bar) {
     return intermediate_written;
 }
 
-int write_bar_pos(struct bar *bar) {
+int
+write_bar_pos(struct bar *bar)
+{
     char to_write[1024];
     int intermediate_written;
     switch (bar->pos) {
@@ -195,7 +203,9 @@ int write_bar_pos(struct bar *bar) {
     return intermediate_written;
 }
 
-int write_bar_layer(struct bar *bar) {
+int
+write_bar_layer(struct bar *bar)
+{
     char to_write[1024];
     int intermediate_written;
     switch (bar->layer) {
@@ -269,7 +279,6 @@ process_query(struct bar *bar)
         return true;
     }
 
-
     return true;
 }
 
@@ -282,7 +291,7 @@ process_msg(struct bar *bar)
     char value[512];
 
     if (type == 'm') {
-        while ((msgs = extract_kv(bar->ipc, key, value)) != nullptr&& msgs[0] != '\0')
+        while ((msgs = extract_kv(bar->ipc, key, value)) != nullptr && msgs[0] != '\0')
             if (m_find_by_key(bar, key, value))
                 return false;
 
@@ -291,11 +300,9 @@ process_msg(struct bar *bar)
 
         if (!m_find_by_key(bar, key, value))
             return false;
-    }
-    else if (type == 'q') {
+    } else if (type == 'q') {
         process_query(bar);
-    }
-    else {
+    } else {
         log_client_err(bar->ipc, __FILE__, __LINE__, "Unknown message type.");
         return false;
     }

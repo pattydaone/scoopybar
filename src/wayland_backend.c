@@ -8,8 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <wayland-client.h>
 #include <pixman.h>
+#include <wayland-client.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -18,7 +18,6 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-
 
 struct surface_buf {
     struct wl_buffer *wl_buf;
@@ -32,7 +31,7 @@ struct surface_buf {
 
     pixman_image_t *pix;
 
-    bool busy;  /* Buffer is currently being rendered (=> rendering_buf) */
+    bool busy; /* Buffer is currently being rendered (=> rendering_buf) */
 };
 
 /* TODO: rewrite */
@@ -212,8 +211,8 @@ zwlr_surface_configure(void *data, struct zwlr_layer_surface_v1 *surface, uint32
 
     zwlr_layer_surface_v1_ack_configure(surface, serial);
 
-    /* TODO: this might be excessive 
-     * perhaps there's a better way 
+    /* TODO: this might be excessive
+     * perhaps there's a better way
      * to store this data ? */
     output->surface.height = height;
     output->surface.width = width;
@@ -350,8 +349,7 @@ err:
 /* Start output code */
 
 static void
-wl_output_geometry(void *data, struct wl_output *, int, int, int, int,
-                   int, const char *, const char *, int transform)
+wl_output_geometry(void *data, struct wl_output *, int, int, int, int, int, const char *, const char *, int transform)
 {
     struct output *out = data;
     out->transform = transform;
@@ -376,7 +374,7 @@ static void
 wl_output_name(void *data, struct wl_output *, const char *name)
 {
     struct output *out = data;
-    out->name = (name != nullptr? strdup(name) : nullptr);
+    out->name = (name != nullptr ? strdup(name) : nullptr);
 }
 
 static void
@@ -545,7 +543,7 @@ init_bar_backend(struct bar *bar)
             LL_delete_output(&ret->outputs, tmp);
             continue;
         }
-        if (valid_outputs != nullptr&& strstr(valid_outputs, cur->data->name) == nullptr) {
+        if (valid_outputs != nullptr && strstr(valid_outputs, cur->data->name) == nullptr) {
             struct output_node *tmp = cur;
             cur = cur->next;
             output_destroy(tmp->data);
@@ -712,10 +710,7 @@ resize_buffers(struct bar *bar)
 
     bar_commit(bar);
 
-    ll_foreach(backend->outputs, cur) 
-    {
-        block_until_buf_release(backend, cur->data->pending_buf);
-    }
+    ll_foreach(backend->outputs, cur) { block_until_buf_release(backend, cur->data->pending_buf); }
 
     return true;
 }

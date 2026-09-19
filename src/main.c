@@ -9,7 +9,7 @@
 #include "utils/config_parser.h"
 #include "utils/log.h"
 
-#include "bar.h"
+#include "bar_manager.h"
 #include "ipc.h"
 
 extern volatile sig_atomic_t g_sig;
@@ -68,7 +68,7 @@ run_client(char type, int argc, char **argv)
 {
     struct bar_ipc *ipc = malloc(sizeof(struct bar_ipc));
     ipc->socket = malloc(sizeof(struct sockaddr_un));
-    if (ipc == nullptr|| ipc->socket == nullptr) {
+    if (ipc == nullptr || ipc->socket == nullptr) {
         log_err(__FILE__, __LINE__, "Failed to allocate ipc structs.");
         goto out;
     }
@@ -80,21 +80,21 @@ run_client(char type, int argc, char **argv)
         goto out;
 
     int s;
-    struct pollfd fd[] = {{ .fd = ipc->socket_fd, .events = POLLIN }};
+    struct pollfd fd[] = {{.fd = ipc->socket_fd, .events = POLLIN}};
     for (s = 0; s < 20; ++s) {
         /* Blocks until it receives SUCCESS message... scary...
-         * but it seems if I don't do this sometimes I'll reach 
-         * the timeout before the bar is able to respond, which 
-         * causes the bar to crash as well.... maybe increase 
+         * but it seems if I don't do this sometimes I'll reach
+         * the timeout before the bar is able to respond, which
+         * causes the bar to crash as well.... maybe increase
          * timeout ?
          */
-        if (poll(fd, sizeof(fd)/sizeof(fd[0]), -1) == -1) {
+        if (poll(fd, sizeof(fd) / sizeof(fd[0]), -1) == -1) {
             log_err(__FILE__, __LINE__, "Failed to poll.");
             goto out;
         }
-        
+
         if (fd[0].revents & POLLIN) {
-            if (!client_receive_msg(ipc)) 
+            if (!client_receive_msg(ipc))
                 goto out;
             if (strcmp(ipc->msg, "SUCCESS") == 0) {
                 IPC_socket_destroy(ipc, CLIENT);
@@ -168,14 +168,15 @@ main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    struct bar *bar = init_bar(p);
-    if (bar == nullptr) {
+    struct bar_manager *manager = init_bar_manager(p);
+    if (manager == nullptr) {
+        log_err(__FILE__, __LINE__, "Failed to create bar manager.");
         exit(EXIT_FAILURE);
     }
 
-    bar_loop(bar);
+    event_loop(manager);
 
-    bar_destroy(bar);
+    destroy_bar_manager(manager);
 
     return EXIT_SUCCESS;
 }

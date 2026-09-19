@@ -1,8 +1,8 @@
 #ifndef EVENT_H
 #define EVENT_H
 
-#include "config.h"
 #include "bar.h"
+#include "config.h"
 
 struct item_q;
 
@@ -39,10 +39,23 @@ struct event_node {
     struct event_node *next;
 };
 
-struct event *event_create(enum event_type type, void *event_data);
+struct queue {
+    struct event_node *head;
+    struct event_node *tail;
+};
 
-void event_destroy(struct event *event);
+struct queue *init_queue();
 
-bool empty_queue(struct event_node *queue, struct bar *bar);
+void destroy_queue(struct queue *queue);
+
+struct event *init_event(enum event_type type, void *event_data);
+
+void destroy_event(struct event *event);
+
+bool process_event(struct queue *q, struct bar *bar);
+
+void append_event(struct queue *q, struct event *event);
+
+bool is_empty(struct queue *q);
 
 #endif

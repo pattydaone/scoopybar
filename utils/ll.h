@@ -2,7 +2,6 @@
 #define LL_H
 
 #include "../src/wayland_backend.h"
-#include "../src/event.h"
 
 #define ll_foreach(node, cur) \
     for (__typeof__(node) cur = node; cur != NULL; cur = cur->next)
@@ -15,9 +14,5 @@ struct output_node {
 void LL_push_back_output(struct output_node **head, struct output *data);
 
 void LL_delete_output(struct output_node **head, struct output_node *data);
-
-void LL_push_back_event(struct event_node **head, struct event *data);
-
-void LL_delete_event(struct event_node **head, struct event_node *data);
 
 #endif

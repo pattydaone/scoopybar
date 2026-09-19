@@ -1,9 +1,9 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include "utils/config_parser.h"
 #include "bar.h"
 #include "item.h"
+#include "utils/config_parser.h"
 
 enum bar_attributes {
     BAR_BACKGROUND_COLOR,

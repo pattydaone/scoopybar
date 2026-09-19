@@ -40,8 +40,8 @@ server_setup(struct bar_ipc *bar_ipc)
     assert(sock != nullptr);
 
     char *sock_path = "/tmp/scoopybar-socket";
-    unlink(sock_path); /* In case a previous instance exited abnormally 
-                        * NOTE: this approach necessarily means that 
+    unlink(sock_path); /* In case a previous instance exited abnormally
+                        * NOTE: this approach necessarily means that
                         * multiple instances can't be run at once
                         */
     strncpy(sock->sun_path, sock_path, sizeof(sock->sun_path) - 1);
@@ -69,8 +69,8 @@ IPC_socket_init(struct bar_ipc *bar_ipc, enum sock_type type)
     assert(bar_ipc != nullptr);
 
     bar_ipc->accept_fd = -1;
-    /* TODO: using SOCK_SEQPACKET here wastes a lot of space for most messages; consider 
-     * going back to SOCK_STREAM and using a different way to determine message boundaries 
+    /* TODO: using SOCK_SEQPACKET here wastes a lot of space for most messages; consider
+     * going back to SOCK_STREAM and using a different way to determine message boundaries
      * (for example, send size of message in front)
      */
     bar_ipc->socket_fd = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
@@ -117,7 +117,7 @@ get_msg_length(struct bar_ipc *server)
         log_err(__FILE__, __LINE__, "Error reading from socket.");
         return 0;
     }
-    
+
     return strtol(len_as_char, nullptr, 0);
 }
 
@@ -134,7 +134,7 @@ server_receive_msg(struct bar_ipc *server)
         log_err(__FILE__, __LINE__, "Error reading from socket.");
         return false;
     }
-    if (b_read == 0) 
+    if (b_read == 0)
         return false; // Nothing sent.
     server->msg_bytes = b_read;
     server->msg[b_read] = '\0';
@@ -171,8 +171,7 @@ IPC_send_msg(struct bar_ipc *client)
         // }
 
         b_written = send(client->socket_fd, client->msg, client->msg_bytes, 0);
-    }
-    else {
+    } else {
         // b_written = send(client->accept_fd, msg_len, 5, 0);
         // if (b_written == -1) {
         //     log_err(__FILE__, __LINE__, "Failed to write message length to socket.");

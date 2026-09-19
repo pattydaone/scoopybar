@@ -55,8 +55,6 @@ struct bar *init_bar(struct ConfParser *p);
 
 void bar_destroy(struct bar *bar);
 
-void bar_loop(struct bar *bar);
-
 bool bar_refresh_bg_color(struct bar *bar);
 
 bool bar_refresh_opacity(struct bar *bar);

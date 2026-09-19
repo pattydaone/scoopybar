@@ -121,14 +121,14 @@ set_height(struct bar *bar, char *value, int cur_line)
         char *err = "%s: Invalid bar height.";
         if (ipc)
             log_client_err(ipc, __FILE__, __LINE__, err, value);
-        else 
+        else
             log_conf_err(cur_line, err, value);
         return false;
     } else if (errno == ERANGE) {
-        char *err= "Bar height either underflows or overflows.";
+        char *err = "Bar height either underflows or overflows.";
         if (ipc)
             log_client_err(ipc, __FILE__, __LINE__, err);
-        else 
+        else
             log_conf_err(cur_line, err);
         return false;
     }
@@ -142,10 +142,10 @@ set_width(struct bar *bar, char *value, int cur_line)
     struct bar_ipc *ipc = bar->ipc;
     int val = strtol(value, nullptr, 10);
     if (!val && value[0] != '0') {
-        char *err= "%s: Invalid bar width.";
+        char *err = "%s: Invalid bar width.";
         if (ipc)
             log_client_err(ipc, __FILE__, __LINE__, err, value);
-        else 
+        else
             log_conf_err(cur_line, err, value);
         return false;
     } else if (errno == ERANGE) {
@@ -195,7 +195,7 @@ set_opacity(struct bar *bar, char *value, int cur_line)
         else
             log_conf_err(cur_line, err, value);
     } else if (errno == ERANGE) {
-        char * err = "Bar background opacity either underflows or overflows.";
+        char *err = "Bar background opacity either underflows or overflows.";
         if (ipc)
             log_client_err(ipc, __FILE__, __LINE__, err);
         else
@@ -287,7 +287,7 @@ set_border_opacity(struct bar *bar, char *value, int cur_line)
         else
             log_conf_err(cur_line, err, value);
     } else if (errno == ERANGE) {
-        char * err = "Border opacity either underflows or overflows.";
+        char *err = "Border opacity either underflows or overflows.";
         if (ipc)
             log_client_err(ipc, __FILE__, __LINE__, err);
         else
@@ -401,7 +401,7 @@ set_bar_opt(struct bar *bar, struct ConfParser *p)
     if ((find_code = PARSER_find(p, valid_bar_keys[7], value)) == SUCCESS) {
         if (!set_border_color(bar, value, cur_line))
             return false;
-    } else  {
+    } else {
         bar->border.color.red = 65535;
         bar->border.color.green = 65535;
         bar->border.color.blue = 65535;
@@ -430,7 +430,9 @@ set_bar_opt(struct bar *bar, struct ConfParser *p)
     return true;
 }
 
-bool set_item_position(struct bar_item *item, char *value, int cur_line) {
+bool
+set_item_position(struct bar_item *item, char *value, int cur_line)
+{
     if (strcmp(value, "left") == 0)
         item->pos = ITEM_LEFT;
     else if (strcmp(value, "right") == 0)
