@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 #include <sys/poll.h>
+#include <assert.h>
 
 struct bar_manager *
 init_bar_manager(struct ConfParser *p)
@@ -20,6 +21,11 @@ init_bar_manager(struct ConfParser *p)
 
     ret->backend = ret->bar->backend;
     ret->queue = init_queue();
+    if (ret->queue == nullptr) {
+        log_err(__FILE__, __LINE__, "Failed to create queue.");
+        destroy_bar_manager(ret);
+        return nullptr;
+    }
 
     return ret;
 }
@@ -27,7 +33,12 @@ init_bar_manager(struct ConfParser *p)
 void
 destroy_bar_manager(struct bar_manager *manager)
 {
-    bar_destroy(manager->bar);
+    assert(manager != nullptr);
+
+    if (manager->queue != nullptr)
+        destroy_queue(manager->queue);
+    if (manager->bar != nullptr)
+        bar_destroy(manager->bar);
     free(manager);
 }
 
@@ -66,13 +77,8 @@ event_loop(struct bar_manager *manager)
                 return;
             }
 
-            if (!process_msg(bar)) {
+            if (!process_message(manager)) {
                 log_err(__FILE__, __LINE__, "Failed to process message.");
-                return;
-            }
-
-            if (!IPC_send_msg(bar->ipc)) {
-                log_err(__FILE__, __LINE__, "Failed to reply to message.");
                 return;
             }
         }
@@ -92,6 +98,12 @@ event_loop(struct bar_manager *manager)
 
             wl_display_flush(backend->wl_display);
         }
+
+        while (!is_empty(manager->queue))
+            if (!process_event(manager->queue, bar)) {
+                log_err(__FILE__, __LINE__, "Failed to process event.");
+                goto err;
+            }
     }
 err:
     wl_display_cancel_read(backend->wl_display);

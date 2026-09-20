@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "utils/log.h"
+#include "query.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -15,8 +16,7 @@ init_queue()
         return nullptr;
     }
 
-    ret->head = nullptr;
-    ret->tail = nullptr;
+    memset(ret, 0, sizeof(struct queue));
 
     return ret;
 }
@@ -65,10 +65,14 @@ destroy_event(struct event *event)
 {
     assert(event != nullptr);
 
-    if (event->event.bar_msg != nullptr)
+    if (event->type == EVENT_BAR_MSG && event->event.bar_msg != nullptr) {
+        free(event->event.bar_msg->value);
         free(event->event.bar_msg);
-    if (event->event.query != nullptr)
+    }
+    if (event->type == EVENT_QUERY && event->event.query != nullptr) {
+        free(event->event.query->query);
         free(event->event.query);
+    }
 
     free(event);
 }
@@ -81,13 +85,22 @@ process_event(struct queue *queue, struct bar *bar)
     struct event *event = queue->head->data;
     assert(event != nullptr);
 
-    bool ret = false;
     switch (event->type) {
     case (EVENT_QUERY):
+        if (!process_query(bar)) {
+            log_err(__FILE__, __LINE__, "Failed to process query.");
+            return false;
+        }
         break;
     case (EVENT_BAR_MSG):
-        ret = bar_set_attribute(bar, event->event.bar_msg->value, event->event.bar_msg->attribute);
+        if (!bar_set_attribute(bar, event->event.bar_msg->value, event->event.bar_msg->attribute)) {
+            log_err(__FILE__, __LINE__, "Failed to process message.");
+            return false;
+        }
+        break;
     case (EVENT_ITEM_MSG):
+        log_err(__FILE__, __LINE__, "EVENT_ITEM_MSG not yet supported.");
+        return false;
         break;
     }
 
@@ -98,7 +111,13 @@ process_event(struct queue *queue, struct bar *bar)
     destroy_event(to_destroy->data);
     free(to_destroy);
 
-    return ret;
+    bar->ipc->msg_bytes = snprintf(bar->ipc->msg, 1024, "SUCCESS") + 1;
+    if (!IPC_send_msg(bar->ipc)) {
+        log_err(__FILE__, __LINE__, "Failed to reply to message.");
+        return false;
+    }
+
+    return true;
 }
 
 void
@@ -108,7 +127,10 @@ append_event(struct queue *q, struct event *event)
 
     node->data = event;
     node->next = nullptr;
-    q->tail->next = node;
+    if (q->head == nullptr || q->tail == nullptr)
+        q->head = node;
+    else
+        q->tail->next = node;
     q->tail = node;
 }
 

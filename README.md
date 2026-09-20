@@ -32,8 +32,6 @@ keep these things in mind when reading, referencing (lol), and/or making suggest
 
 # TODO list
 
-- [ ] Rework the loop of the bar with a manager (which stores the bar and the queue) and handles queue stuff, a lot of stuff
-- [ ] Proper internal event system
 - [ ] Add colors and time stamps for log statements
 - [ ] Consider changing ipc model: using streams which have some more defined way to indicate end of message, but without having a fixed length as with seqpack
 - [ ] Add ability to query bar information
@@ -77,6 +75,9 @@ having a list of things ive completed helps keep me sane: no matter how bad thin
 - [X] buffer release event isn't being sent on jay, but is on wlr and smithay... why?
 - [X] Make linked list a tad more featureful (most importantly, foreach macro)
 - [X] Add ability to change bar settings on the fly (tentatively added...)
+- [X] Rework the loop of the bar with a manager (which stores the bar and the queue) and handles queue stuff, a lot of stuff
+- [X] Proper internal event system
+
 # The design
 
 ## Configuration 
