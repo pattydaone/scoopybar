@@ -19,7 +19,7 @@ init_bar_manager(struct ConfParser *p)
     }
 
     ret->backend = ret->bar->backend;
-    ret->queue = nullptr;
+    ret->queue = init_queue();
 
     return ret;
 }

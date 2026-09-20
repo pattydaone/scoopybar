@@ -549,6 +549,9 @@ bar_set_attribute(struct bar *bar, char *value, enum bar_attributes attr)
             return false;
         bar_refresh_border(bar);
         break;
+    case BAR_ATTRIBUTE_NULL:
+        log_err(__FILE__, __LINE__, "Unrecognized bar attribute.");
+        return false;
     }
 
     bar_commit(bar);

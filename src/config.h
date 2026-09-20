@@ -6,6 +6,7 @@
 #include "utils/config_parser.h"
 
 enum bar_attributes {
+    BAR_ATTRIBUTE_NULL = 0,
     BAR_BACKGROUND_COLOR,
     BAR_OPACITY,
     BAR_HEIGHT,

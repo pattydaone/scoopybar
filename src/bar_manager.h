@@ -8,7 +8,7 @@
 #include "utils/config_parser.h"
 
 struct bar_manager {
-    struct event_node *queue;
+    struct queue *queue;
     struct bar *bar;
     struct bar_backend *backend;
 };
